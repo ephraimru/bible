@@ -1,0 +1,54 @@
+{
+  "projects": [
+    {
+      "platforms": {
+        "flutter_web": {
+          "config": {
+            "apiKey": "YOUR_API_KEY",
+            "appId": "YOUR_APP_ID",
+            "messagingSenderId": "YOUR_SENDER_ID",
+            "projectId": "faith-mission-app",
+            "authDomain": "faith-mission-app.firebaseapp.com",
+            "databaseURL": "https://faith-mission-app.firebaseio.com",
+            "storageBucket": "faith-mission-app.appspot.com",
+            "measurementId": "YOUR_MEASUREMENT_ID"
+          },
+          "outputFile": "web/firebase-config.js"
+        },
+        "flutter_android": {
+          "config": {
+            "apiKey": "YOUR_ANDROID_API_KEY",
+            "appId": "YOUR_ANDROID_APP_ID",
+            "messagingSenderId": "YOUR_SENDER_ID",
+            "projectId": "faith-mission-app",
+            "storageBucket": "faith-mission-app.appspot.com"
+          },
+          "outputFile": "android/app/google-services.json"
+        },
+        "flutter_ios": {
+          "config": {
+            "apiKey": "YOUR_IOS_API_KEY",
+            "appId": "YOUR_IOS_APP_ID",
+            "messagingSenderId": "YOUR_SENDER_ID",
+            "projectId": "faith-mission-app",
+            "storageBucket": "faith-mission-app.appspot.com",
+            "iosClientId": "YOUR_IOS_CLIENT_ID",
+            "iosBundleId": "com.faithmission.app"
+          },
+          "outputFile": "ios/GoogleService-Info.plist"
+        }
+      },
+      "platform_aliases": {},
+      "firebase_hosts": [
+        {
+          "host": "faith-mission-app.web.app",
+          "schemes": ["faith-mission-app"]
+        },
+        {
+          "host": "faith-mission-app.firebaseapp.com",
+          "schemes": ["faith-mission-app"]
+        }
+      ]
+    }
+  ]
+}

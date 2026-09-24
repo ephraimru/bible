@@ -1,0 +1,168 @@
+import 'package:flutter/material.dart';
+
+import '../config/theme.dart';
+import '../models/user_model.dart';
+
+class ProfileHeader extends StatelessWidget {
+  final UserModel user;
+
+  const ProfileHeader({super.key, required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Cover photo (placeholder)
+        Container(
+          height: 120,
+          decoration: BoxDecoration(
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(AppTheme.largeBorderRadius.topLeft.x),
+              bottom: Radius.circular(AppTheme.largeBorderRadius.bottomLeft.x),
+            ),
+            gradient: LinearGradient(
+              colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Center(
+            child: Icon(
+              Icons.church,
+              size: 48,
+              color: Colors.white.withOpacity(0.7),
+            ),
+          ),
+        ),
+        
+        // Profile picture
+        Container(
+          margin: const EdgeInsets.only(top: -40),
+          alignment: Alignment.center,
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: AppTheme.mediumShadow,
+            ),
+            child: user.photoUrl != null
+                ? CircleAvatar(
+                    radius: 40,
+                    backgroundImage: NetworkImage(user.photoUrl!),
+                  )
+                : CircleAvatar(
+                    radius: 40,
+                    backgroundColor: AppTheme.primaryColor,
+                    child: Text(
+                      user.displayName.isNotEmpty
+                          ? user.displayName[0].toUpperCase()
+                          : 'U',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+          ),
+        ),
+        
+        const SizedBox(height: AppTheme.md),
+        
+        // User info
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Display name
+            Text(
+              user.displayName,
+              style: Theme.of(context).textTheme.titleLarge,
+              textAlign: TextAlign.center,
+            ),
+            
+            const SizedBox(height: AppTheme.xs),
+            
+            // Role
+            Chip(
+              label: Text(user.role.displayName),
+              backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+              labelStyle: TextStyle(
+                color: AppTheme.primaryColor,
+                fontWeight: FontWeight.bold,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: AppTheme.mediumBorderRadius,
+              ),
+            ),
+            
+            // Custom title (if available)
+            if (user.chosenTitle != null)
+              Padding(
+                padding: const EdgeInsets.only(top: AppTheme.xs),
+                child: Text(
+                  '"${user.chosenTitle}"',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.grey,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            
+            const SizedBox(height: AppTheme.md),
+            
+            // Bio
+            if (user.bio != null && user.bio!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppTheme.lg),
+                child: Text(
+                  user.bio!,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+          ],
+        ),
+        
+        const SizedBox(height: AppTheme.md),
+        
+        // Follow button (if viewing own profile, show edit)
+        if (user.id == ref?.read(authServiceProvider)?.currentUserId)
+          ElevatedButton.icon(
+            onPressed: () {
+              // Edit profile
+            },
+            icon: const Icon(Icons.edit_outlined),
+            label: const Text('Edit Profile'),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppTheme.xxl,
+                vertical: AppTheme.md,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: AppTheme.mediumBorderRadius,
+              ),
+            ),
+          )
+        else
+          OutlinedButton.icon(
+            onPressed: () {
+              // Follow user
+            },
+            icon: const Icon(Icons.person_add_outlined),
+            label: const Text('Follow'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppTheme.xxl,
+                vertical: AppTheme.md,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: AppTheme.mediumBorderRadius,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}

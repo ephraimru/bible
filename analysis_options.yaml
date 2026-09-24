@@ -1,0 +1,23 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - '**/*.g.dart'
+    - '**/*.freezed.dart'
+    - '**/generated_plugin_registrant.dart'
+    - '**/firebase_options.dart'
+  
+  errors:
+    unused_local_variable: warning
+    unused_import: warning
+    dead_code: warning
+
+linter:
+  rules:
+    prefer_const_constructors: true
+    prefer_final_fields: true
+    use_key_in_widget_constructors: true
+    avoid_print: true
+    prefer_null_aware_operators: true
+    unnecessary_null_aware_operator_on_extension_on_nullable: true
+    prefer_conditional_assignment: true

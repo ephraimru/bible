@@ -1,0 +1,75 @@
+rules_version = '2';
+service firebase.storage {
+  match /b {bucket}/{allPaths=**} {
+    // ============ PUBLIC READ RULES ============
+    // Allow reading of public content (bible images, etc.)
+    match /public/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if false; // No public writes
+    }
+    
+    // ============ USER CONTENT ============
+    // User profile pictures
+    match /users/{userId}/profile/{allPaths=**} {
+      // User can read/write their own profile pictures
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Anyone can read profile pictures
+      allow read: if request.auth != null;
+    }
+    
+    // User blog post images
+    match /users/{userId}/blog/{allPaths=**} {
+      // User can read/write their own blog images
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Anyone can read blog images
+      allow read: if request.auth != null;
+    }
+    
+    // ============ CHAT IMAGES ============
+    match /chat/{roomId}/{allPaths=**} {
+      // Room members can read chat images
+      allow read: if request.auth != null && 
+        get(/databases/$(database)/documents/chat_rooms/$(roomId)).data.memberIds.hasAny([request.auth.uid]);
+      
+      // Room members can upload images
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/chat_rooms/$(roomId)).data.memberIds.hasAny([request.auth.uid]);
+    }
+    
+    // ============ DAILY VERSE IMAGES ============
+    match /daily_verses/{allPaths=**} {
+      // Anyone can read daily verse images
+      allow read: if request.auth != null;
+      
+      // Only admins can write daily verse images
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/admins/$(request.auth.uid)).exists;
+    }
+    
+    // ============ PREMIUM CONTENT ============
+    match /premium/{allPaths=**} {
+      // Only premium users can access premium content
+      allow read: if request.auth != null && 
+        _hasPremiumAccess(request.auth.uid);
+      
+      // Only admins can write premium content
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/admins/$(request.auth.uid)).exists;
+    }
+    
+    // ============ DEFAULT DENY ============
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+// Helper function to check premium access
+function _hasPremiumAccess(userId) {
+  // Check if user has active subscription
+  return exists(/databases/$(database)/documents/subscriptions/${userId}) &&
+         get(/databases/$(database)/documents/subscriptions/${userId}).data.isActive == true &&
+         get(/databases/$(database)/documents/subscriptions/${userId}).data.endDate > request.time;
+}
