@@ -28,6 +28,21 @@ enum PremiumTier {
   bishop,
 }
 
+extension PremiumTierExtension on PremiumTier {
+  String get displayName {
+    switch (this) {
+      case PremiumTier.free:
+        return 'Free';
+      case PremiumTier.basic:
+        return 'Basic';
+      case PremiumTier.pro:
+        return 'Pro';
+      case PremiumTier.bishop:
+        return 'Bishop';
+    }
+  }
+}
+
 @freezed
 class UserModel with _$UserModel {
   const factory UserModel({

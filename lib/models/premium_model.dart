@@ -49,6 +49,25 @@ enum SubscriptionPlan {
   bishop,
 }
 
+extension SubscriptionPlanExtension on SubscriptionPlan {
+  String get displayName {
+    switch (this) {
+      case SubscriptionPlan.free:
+        return 'Free';
+      case SubscriptionPlan.basicMonthly:
+        return 'Basic Monthly';
+      case SubscriptionPlan.basicYearly:
+        return 'Basic Yearly';
+      case SubscriptionPlan.proMonthly:
+        return 'Pro Monthly';
+      case SubscriptionPlan.proYearly:
+        return 'Pro Yearly';
+      case SubscriptionPlan.bishop:
+        return 'Bishop';
+    }
+  }
+}
+
 /// Payment method
 enum PaymentMethod {
   creditCard,
