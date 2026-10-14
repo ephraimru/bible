@@ -67,7 +67,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     });
     
     try {
-      final user = ref.read(currentUserProvider).value;
+      final user = ref.read(localCurrentUserProvider).value;
       if (user == null) {
         throw Exception('User not logged in');
       }
@@ -107,7 +107,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         updatedAt: DateTime.now(),
       );
       
-      await ref.read(databaseServiceProvider).createBlogPost(post);
+      await ref.read(localStorageServiceProvider).createBlogPost(post);
       
       if (mounted) {
         context.go('/blog');
@@ -125,7 +125,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(currentUserProvider).value;
+    final user = ref.watch(localCurrentUserProvider).value;
     
     // Check if user can post
     if (user != null && !(user.role == UserRole.bishop || user.canPostOnBlog)) {

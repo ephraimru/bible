@@ -30,10 +30,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _loadData() async {
     // Load daily verse
-    final dailyVerse = await ref.read(bibleServiceProvider).getDailyVerse();
+    final dailyVerse = await ref.read(mockBibleServiceProvider).getDailyVerse();
     
     // Check faith journey
-    final userId = ref.read(authServiceProvider).currentUserId;
+    final userId = ref.read(localAuthServiceProvider).currentUserId;
     if (userId != null) {
       final journey = await ref.read(faithJourneyServiceProvider).getFaithJourney(userId);
       if (journey == null) {
@@ -44,7 +44,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(currentUserProvider).value;
+    final user = ref.watch(localCurrentUserProvider).value;
     final journeyStats = ref.watch(faithJourneyStatsProvider);
     
     return Scaffold(

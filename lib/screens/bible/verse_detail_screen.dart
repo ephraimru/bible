@@ -32,16 +32,16 @@ class _VerseDetailScreenState extends ConsumerState<VerseDetailScreen> {
 
   Future<void> _loadVerse() async {
     try {
-      final verse = await ref.read(bibleServiceProvider).getVerse(widget.verseId);
+      final verse = await ref.read(mockBibleServiceProvider).getVerse(widget.verseId);
       if (verse != null) {
         setState(() {
           _verse = verse;
         });
         
         // Check if user has liked or saved this verse
-        final userId = ref.read(authServiceProvider).currentUserId;
+        final userId = ref.read(localAuthServiceProvider).currentUserId;
         if (userId != null) {
-          final user = await ref.read(databaseServiceProvider).getUser(userId);
+          final user = await ref.read(localStorageServiceProvider).getUser(userId);
           if (user != null) {
             setState(() {
               _isLiked = user.likedVerseIds.contains(verse.id);
@@ -51,7 +51,7 @@ class _VerseDetailScreenState extends ConsumerState<VerseDetailScreen> {
         }
         
         // Load related verses (from same chapter)
-        final chapterVerses = await ref.read(bibleServiceProvider).getVersesByChapter(
+        final chapterVerses = await ref.read(mockBibleServiceProvider).getVersesByChapter(
               verse.book,
               verse.chapter,
             );
@@ -76,10 +76,10 @@ class _VerseDetailScreenState extends ConsumerState<VerseDetailScreen> {
   }
 
   Future<void> _toggleLike() async {
-    final userId = ref.read(authServiceProvider).currentUserId;
+    final userId = ref.read(localAuthServiceProvider).currentUserId;
     if (userId == null || _verse == null) return;
     
-    final databaseService = ref.read(databaseServiceProvider);
+    final databaseService = ref.read(localStorageServiceProvider);
     
     if (_isLiked) {
       await databaseService.unlikeVerse(_verse!.id, userId);
@@ -95,10 +95,10 @@ class _VerseDetailScreenState extends ConsumerState<VerseDetailScreen> {
   }
 
   Future<void> _toggleSave() async {
-    final userId = ref.read(authServiceProvider).currentUserId;
+    final userId = ref.read(localAuthServiceProvider).currentUserId;
     if (userId == null || _verse == null) return;
     
-    final databaseService = ref.read(databaseServiceProvider);
+    final databaseService = ref.read(localStorageServiceProvider);
     
     if (_isSaved) {
       await databaseService.unsaveVerse(_verse!.id, userId);

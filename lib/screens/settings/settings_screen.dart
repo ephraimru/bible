@@ -4,11 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
 import '../../models/user_model.dart';
-import '../../services/auth_service.dart';
-import '../../services/database_service.dart';
+import '../../services/local_auth_service.dart';
+import '../../services/local_storage_service.dart';
 import '../../services/faith_journey_service.dart';
 import '../../services/notification_service.dart';
-import '../../services/premium_service.dart';
+import '../../services/mock_bible_service.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -20,8 +20,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(currentUserProvider).value;
-    final premiumService = ref.watch(premiumServiceProvider);
+    final user = ref.watch(localCurrentUserProvider);
     final notificationService = ref.watch(notificationServiceProvider);
     
     if (user == null) {
@@ -168,38 +167,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             const SizedBox(height: AppTheme.md),
             
-            // Premium Section
-            _buildSectionHeader('Premium', Icons.star_outline),
-            const SizedBox(height: AppTheme.sm),
-            
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(AppTheme.md),
-                child: Column(
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.diamond, color: Colors.amber),
-                      title: const Text('Premium Features'),
-                      subtitle: Text(user.premiumTier.displayName),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                      onTap: () => context.go('/premium'),
-                    ),
-                    if (user.premiumTier == PremiumTier.bishop) ...[
-                      const Divider(),
-                      ListTile(
-                        leading: const Icon(Icons.person_pin, color: Colors.purple),
-                        title: const Text('Custom Title'),
-                        subtitle: Text(user.chosenTitle ?? 'Choose your title'),
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                        onTap: _showTitleSelection,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: AppTheme.md),
-            
             // Chat Section
             _buildSectionHeader('Chat', Icons.chat_outlined),
             const SizedBox(height: AppTheme.sm),
@@ -319,15 +286,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _updatePreference(String userId, String key, bool value) async {
-    final db = ref.read(databaseServiceProvider);
-    await db.updateUser(userId, {
+    final localStorage = ref.read(localStorageServiceProvider);
+    await localStorage.updateUser(userId, {
       'preferences.$key': value,
-      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedAt': DateTime.now(),
     });
   }
 
   Future<void> _showTimePicker() async {
-    final user = ref.read(currentUserProvider).value;
+    final user = ref.read(localCurrentUserProvider);
     if (user == null) return;
     
     final time = await showTimePicker(
@@ -340,18 +307,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     
     if (time != null) {
       final timeString = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
-      await ref.read(databaseServiceProvider).updateUser(user.id, {
+      final localStorage = ref.read(localStorageServiceProvider);
+      await localStorage.updateUser(user.id, {
         'preferences.reminderTime': timeString,
-        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedAt': DateTime.now(),
       });
     }
   }
 
   Future<void> _showTitleSelection() async {
-    final user = ref.read(currentUserProvider).value;
-    if (user == null || user.role != UserRole.bishop) return;
+    final user = ref.read(localCurrentUserProvider);
+    if (user == null) return;
     
-    final titles = AvailableTitle.values.map((t) => t.displayName).toList();
+    final faithJourneyService = ref.read(faithJourneyServiceProvider);
+    final availableTitles = await faithJourneyService.getAvailableTitles(user.id);
     
     await showDialog(
       context: context,
@@ -361,19 +330,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           width: double.maxFinite,
           child: ListView.builder(
             shrinkWrap: true,
-            itemCount: titles.length,
-            itemBuilder: (context, index) => ListTile(
-              title: Text(titles[index]),
-              selected: user.chosenTitle == titles[index],
-              selectedTileColor: Colors.blue.shade50,
-              onTap: () async {
-                await ref.read(databaseServiceProvider).updateUser(user.id, {
-                  'chosenTitle': titles[index],
-                  'updatedAt': FieldValue.serverTimestamp(),
-                });
-                if (mounted) Navigator.of(context).pop();
-              },
-            ),
+            itemCount: availableTitles.length,
+            itemBuilder: (context, index) {
+              return ListTile(
+                title: Text(availableTitles[index]),
+                onTap: () async {
+                  await faithJourneyService.setChosenTitle(user.id, availableTitles[index]);
+                  if (mounted) Navigator.of(context).pop();
+                },
+              );
+            },
           ),
         ),
         actions: [
@@ -387,7 +353,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _showBlockedUsers() async {
-    final user = ref.read(currentUserProvider).value;
+    final user = ref.read(localCurrentUserProvider);
     if (user == null) return;
     
     await showDialog(
@@ -395,28 +361,151 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Blocked Users'),
         content: user.blockedUserIds.isEmpty
-            ? const Text('You have not blocked any users.')
+            ? const Text('You have not blocked any users')
             : SizedBox(
                 width: double.maxFinite,
                 child: ListView.builder(
                   shrinkWrap: true,
                   itemCount: user.blockedUserIds.length,
-                  itemBuilder: (context, index) => ListTile(
-                    title: Text(user.blockedUserIds[index]),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.unblock, color: Colors.green),
-                      onPressed: () async {
-                        final newList = List<String>.from(user.blockedUserIds)..removeAt(index);
-                        await ref.read(databaseServiceProvider).updateUser(user.id, {
-                          'blockedUserIds': newList,
-                          'updatedAt': FieldValue.serverTimestamp(),
-                        });
-                        if (mounted) Navigator.of(context).pop();
-                      },
-                    ),
-                  ),
+                  itemBuilder: (context, index) {
+                    final blockedUserId = user.blockedUserIds[index];
+                    return ListTile(
+                      title: Text(blockedUserId),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.unblock, color: Colors.green),
+                        onPressed: () async {
+                          final localStorage = ref.read(localStorageServiceProvider);
+                          final blockedUserIds = List<String>.from(user.blockedUserIds);
+                          blockedUserIds.remove(blockedUserId);
+                          await localStorage.updateUser(user.id, {
+                            'blockedUserIds': blockedUserIds,
+                            'updatedAt': DateTime.now(),
+                          });
+                          if (mounted) Navigator.of(context).pop();
+                        },
+                      ),
+                    );
+                  },
                 ),
               ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showAboutDialog() async {
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('About Faith Mission'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Faith Mission is a comprehensive Bible app designed to help you grow in your faith journey.'),
+            SizedBox(height: AppTheme.md),
+            Text('Features:'),
+            SizedBox(height: AppTheme.sm),
+            Text('- Daily Bible verses'),
+            Text('- Complete KJV Bible'),
+            Text('- Faith journey tracking'),
+            Text('- Community chat'),
+            Text('- Blog posts'),
+            SizedBox(height: AppTheme.md),
+            Text('Version: 1.0.0'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showPrivacyPolicy() async {
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Privacy Policy'),
+        content: const SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Faith Mission Privacy Policy'),
+              SizedBox(height: AppTheme.md),
+              Text('We respect your privacy and are committed to protecting your personal data.'),
+              SizedBox(height: AppTheme.sm),
+              Text('In local mode, all your data is stored on your device and is not shared with anyone.'),
+              SizedBox(height: AppTheme.sm),
+              Text('When using Firebase, data is stored in the cloud and protected by Firebase security.'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showTermsOfService() async {
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Terms of Service'),
+        content: const SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Faith Mission Terms of Service'),
+              SizedBox(height: AppTheme.md),
+              Text('By using this app, you agree to our terms and conditions.'),
+              SizedBox(height: AppTheme.sm),
+              Text('The app is provided as-is without warranty.'),
+              SizedBox(height: AppTheme.sm),
+              Text('We are not responsible for any content posted by users.'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showHelpDialog() async {
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Help & Support'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Need help with Faith Mission?'),
+            SizedBox(height: AppTheme.md),
+            Text('Contact us at: support@faithmission.com'),
+            SizedBox(height: AppTheme.sm),
+            Text('Or visit our website for FAQs and tutorials.'),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -448,7 +537,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
     
     if (confirmed == true) {
-      await ref.read(authServiceProvider).signOut();
+      await ref.read(localAuthServiceProvider).signOut();
       if (mounted) context.go('/welcome');
     }
   }
@@ -474,168 +563,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
     
     if (confirmed == true) {
-      final user = ref.read(currentUserProvider).value;
+      final user = ref.read(localCurrentUserProvider);
       if (user != null) {
-        await ref.read(authServiceProvider).deleteAccount(user.id);
+        await ref.read(localAuthServiceProvider).deleteAccount();
         if (mounted) context.go('/welcome');
       }
     }
-  }
-
-  Future<void> _showHelpDialog() async {
-    await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Help & Support'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Faith Mission App Support'),
-            SizedBox(height: AppTheme.sm),
-            Text('Email: support@faithmission.app'),
-            SizedBox(height: AppTheme.sm),
-            Text('Phone: +1 (555) 123-4567'),
-            SizedBox(height: AppTheme.sm),
-            Text('Website: https://faithmission.app'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showAboutDialog() async {
-    await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('About Faith Mission'),
-        content: const SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Faith Mission is a comprehensive mobile application designed to help believers grow in their faith journey.'),
-              SizedBox(height: AppTheme.sm),
-              Text('Features:'),
-              SizedBox(height: AppTheme.xs),
-              Text('- Daily Bible verses with beautiful backgrounds'),
-              Text('- Complete King James Version Bible'),
-              Text('- Blog platform for faith-based articles'),
-              Text('- Gospel-focused chat rooms'),
-              Text('- Faith journey tracking and role progression'),
-              Text('- Premium features for enhanced experience'),
-              SizedBox(height: AppTheme.sm),
-              Text('Version: 1.0.0'),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showPrivacyPolicy() async {
-    await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Privacy Policy'),
-        content: const SingleChildScrollView(
-          child: Text('''
-Privacy Policy for Faith Mission App
-
-1. Information We Collect
-   - We collect information you provide when you create an account
-   - We track your reading progress and faith journey
-   - We store your chat messages and blog posts
-
-2. How We Use Your Information
-   - To provide and improve our services
-   - To personalize your experience
-   - To communicate with you
-
-3. Information Sharing
-   - We do not sell your personal information
-   - Your public profile and posts are visible to other users
-   - We may share aggregated, non-personal information
-
-4. Security
-   - We implement security measures to protect your data
-   - Your password is stored securely
-
-5. Changes to This Policy
-   - We may update this policy from time to time
-   - We will notify you of significant changes
-
-For questions about this policy, please contact us at privacy@faithmission.app
-'''),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showTermsOfService() async {
-    await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Terms of Service'),
-        content: const SingleChildScrollView(
-          child: Text('''
-Terms of Service for Faith Mission App
-
-1. Acceptance of Terms
-   - By using this app, you agree to these terms
-
-2. User Conduct
-   - You must be at least 13 years old to use this app
-   - You agree to use the app only for lawful purposes
-   - You agree not to post offensive, political, or inappropriate content
-   - All discussions must be focused on the Gospel
-
-3. Content Guidelines
-   - No political discussions allowed
-   - No offensive language or content
-   - No spam or promotional content
-   - Respect all users and their beliefs
-
-4. Account Termination
-   - We may suspend or terminate accounts that violate these terms
-   - You can delete your account at any time
-
-5. Disclaimer
-   - The app is provided "as is" without warranties
-   - We are not responsible for any content posted by users
-
-6. Changes to Terms
-   - We may update these terms from time to time
-   - Continued use constitutes acceptance of changes
-
-For questions about these terms, please contact us at legal@faithmission.app
-'''),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
   }
 }

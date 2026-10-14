@@ -21,7 +21,7 @@ class PremiumScreen extends ConsumerStatefulWidget {
 class _PremiumScreenState extends ConsumerState<PremiumScreen> {
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(currentUserProvider).value;
+    final user = ref.watch(localCurrentUserProvider).value;
     final subscription = ref.watch(currentSubscriptionProvider).value;
     final productsAsync = ref.watch(availableProductsProvider);
     final premiumService = ref.read(premiumServiceProvider);
@@ -605,7 +605,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
   }
 
   Future<void> _purchaseSubscription(SubscriptionPlan plan) async {
-    final user = ref.read(currentUserProvider).value;
+    final user = ref.read(localCurrentUserProvider).value;
     if (user == null) return;
     
     final premiumService = ref.read(premiumServiceProvider);
@@ -676,7 +676,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
   }
 
   Future<void> _purchaseBishopAccess() async {
-    final user = ref.read(currentUserProvider).value;
+    final user = ref.read(localCurrentUserProvider).value;
     if (user == null) return;
     
     showDialog(
@@ -702,7 +702,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
   }
 
   Future<void> _purchaseLadderSkip() async {
-    final user = ref.read(currentUserProvider).value;
+    final user = ref.read(localCurrentUserProvider).value;
     if (user == null) return;
     
     final premiumService = ref.read(premiumServiceProvider);
@@ -721,12 +721,12 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
       
       if (result) {
         // Update user role
-        await ref.read(databaseServiceProvider).updateUser(user.id, {
+        await ref.read(localStorageServiceProvider).updateUser(user.id, {
           'role': UserRole.bishop.name,
           'hasPaidToSkipLadder': true,
           'canPostOnBlog': true,
           'premiumTier': PremiumTier.bishop.name,
-          'updatedAt': FieldValue.serverTimestamp(),
+          'updatedAt': DateTime.now(),
         });
         
         // Update faith journey
@@ -853,7 +853,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
   }
 
   Future<void> _showSubscriptionHistory() async {
-    final user = ref.read(currentUserProvider).value;
+    final user = ref.read(localCurrentUserProvider).value;
     if (user == null) return;
     
     final subscriptions = await ref.read(premiumServiceProvider).getSubscriptionHistory(user.id);

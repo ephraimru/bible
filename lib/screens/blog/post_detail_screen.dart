@@ -34,7 +34,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
 
   Future<void> _loadPost() async {
     try {
-      final post = await ref.read(databaseServiceProvider).getBlogPost(widget.postId);
+      final post = await ref.read(localStorageServiceProvider).getBlogPost(widget.postId);
       if (post != null) {
         setState(() {
           _post = post;
@@ -42,9 +42,9 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
         });
         
         // Check if user has liked or bookmarked this post
-        final userId = ref.read(authServiceProvider).currentUserId;
+        final userId = ref.read(localAuthServiceProvider).currentUserId;
         if (userId != null) {
-          final user = await ref.read(databaseServiceProvider).getUser(userId);
+          final user = await ref.read(localStorageServiceProvider).getUser(userId);
           if (user != null) {
             setState(() {
               _isLiked = user.likedVerseIds.contains(post.id);
@@ -54,7 +54,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
         }
         
         // Increment view count
-        await ref.read(databaseServiceProvider).incrementBlogPostViews(widget.postId);
+        await ref.read(localStorageServiceProvider).incrementBlogPostViews(widget.postId);
       }
     } catch (e) {
       // Handle error
@@ -66,10 +66,10 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   }
 
   Future<void> _toggleLike() async {
-    final userId = ref.read(authServiceProvider).currentUserId;
+    final userId = ref.read(localAuthServiceProvider).currentUserId;
     if (userId == null || _post == null) return;
     
-    final databaseService = ref.read(databaseServiceProvider);
+    final databaseService = ref.read(localStorageServiceProvider);
     
     if (_isLiked) {
       await databaseService.unlikeBlogPost(_post!.id, userId);
@@ -87,10 +87,10 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   }
 
   Future<void> _toggleBookmark() async {
-    final userId = ref.read(authServiceProvider).currentUserId;
+    final userId = ref.read(localAuthServiceProvider).currentUserId;
     if (userId == null || _post == null) return;
     
-    final databaseService = ref.read(databaseServiceProvider);
+    final databaseService = ref.read(localStorageServiceProvider);
     
     if (_isBookmarked) {
       await databaseService.removeBookmarkBlogPost(_post!.id, userId);
@@ -428,7 +428,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
             // Follow button (if not current user)
             const Spacer(),
             
-            if (_post!.authorId != ref.read(authServiceProvider).currentUserId)
+            if (_post!.authorId != ref.read(localAuthServiceProvider).currentUserId)
               OutlinedButton(
                 onPressed: () {
                   // Follow author

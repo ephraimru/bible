@@ -32,7 +32,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
 
   Future<void> _loadBooks() async {
     try {
-      final books = await ref.read(bibleServiceProvider).getBibleBooks();
+      final books = await ref.read(mockBibleServiceProvider).getBibleBooks();
       setState(() {
         _books = books;
         _filteredBooks = books;
@@ -219,7 +219,7 @@ class BibleSearchDelegate extends SearchDelegate<String> {
     }
     
     return FutureBuilder<List<VerseModel>>(
-      future: ref.read(bibleServiceProvider).searchVerses(query: query),
+      future: ref.read(mockBibleServiceProvider).searchVerses(query: query),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(

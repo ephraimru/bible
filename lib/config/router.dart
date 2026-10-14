@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../models/user_model.dart';
-import '../services/auth_service.dart';
+import '../services/local_auth_service.dart';
 import '../screens/splash_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/signup_screen.dart';
@@ -214,7 +214,7 @@ class AppRouter {
 
   // Check if user is logged in
   static Future<bool> _isLoggedIn(BuildContext context) async {
-    final authService = context.read<AuthService>();
+    final authService = context.read<LocalAuthService>();
     return authService.currentUserId != null;
   }
 }

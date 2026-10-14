@@ -20,7 +20,7 @@ class FaithJourneyScreen extends ConsumerStatefulWidget {
 class _FaithJourneyScreenState extends ConsumerState<FaithJourneyScreen> {
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(currentUserProvider).value;
+    final user = ref.watch(localCurrentUserProvider).value;
     final journey = ref.watch(faithJourneyStreamProvider).value;
     final journeyStats = ref.watch(faithJourneyStatsProvider);
     

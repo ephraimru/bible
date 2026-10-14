@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'user_model.dart';
 
@@ -46,7 +46,7 @@ class FaithMilestone with _$FaithMilestone {
   factory FaithMilestone.fromJson(Map<String, dynamic> json) =>
       _$FaithMilestoneFromJson(json);
 
-  factory FaithMilestone.fromFirestore(DocumentSnapshot doc) {
+  factory FaithMilestone.
     final data = doc.data() as Map<String, dynamic>;
     return FaithMilestone.fromJson({...data, 'id': doc.id});
   }
@@ -107,7 +107,7 @@ class FaithJourney with _$FaithJourney {
   factory FaithJourney.fromJson(Map<String, dynamic> json) =>
       _$FaithJourneyFromJson(json);
 
-  factory FaithJourney.fromFirestore(DocumentSnapshot doc) {
+  factory FaithJourney.
     final data = doc.data() as Map<String, dynamic>;
     return FaithJourney.fromJson({...data, 'id': doc.id});
   }
@@ -133,7 +133,7 @@ class ReadingHabit with _$ReadingHabit {
   factory ReadingHabit.fromJson(Map<String, dynamic> json) =>
       _$ReadingHabitFromJson(json);
 
-  factory ReadingHabit.fromFirestore(DocumentSnapshot doc) {
+  factory ReadingHabit.
     final data = doc.data() as Map<String, dynamic>;
     return ReadingHabit.fromJson({...data, 'id': doc.id});
   }
@@ -159,7 +159,7 @@ class ReadingSession with _$ReadingSession {
   factory ReadingSession.fromJson(Map<String, dynamic> json) =>
       _$ReadingSessionFromJson(json);
 
-  factory ReadingSession.fromFirestore(DocumentSnapshot doc) {
+  factory ReadingSession.
     final data = doc.data() as Map<String, dynamic>;
     return ReadingSession.fromJson({...data, 'id': doc.id});
   }

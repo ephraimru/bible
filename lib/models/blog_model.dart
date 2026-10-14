@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'blog_model.freezed.dart';
@@ -53,7 +53,7 @@ class BlogPostModel with _$BlogPostModel {
   factory BlogPostModel.fromJson(Map<String, dynamic> json) =>
       _$BlogPostModelFromJson(json);
 
-  factory BlogPostModel.fromFirestore(DocumentSnapshot doc) {
+  factory BlogPostModel.
     final data = doc.data() as Map<String, dynamic>;
     return BlogPostModel.fromJson({...data, 'id': doc.id});
   }
@@ -81,7 +81,7 @@ class BlogCommentModel with _$BlogCommentModel {
   factory BlogCommentModel.fromJson(Map<String, dynamic> json) =>
       _$BlogCommentModelFromJson(json);
 
-  factory BlogCommentModel.fromFirestore(DocumentSnapshot doc) {
+  factory BlogCommentModel.
     final data = doc.data() as Map<String, dynamic>;
     return BlogCommentModel.fromJson({...data, 'id': doc.id});
   }

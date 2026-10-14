@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
-import '../../services/auth_service.dart';
+import '../../services/local_auth_service.dart';
 
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -35,7 +35,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     });
     
     try {
-      await ref.read(authServiceProvider).resetPassword(
+      await ref.read(localAuthServiceProvider).resetPassword(
             _emailController.text.trim(),
           );
       
@@ -211,7 +211,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         const SizedBox(height: AppTheme.md),
         
         Text(
-          'We have sent a password reset link to your email. Please check your inbox and follow the instructions.',
+          'In local mode, password reset is not available. Please use the email and password you signed up with.',
           style: Theme.of(context).textTheme.bodyMedium,
           textAlign: TextAlign.center,
         ),
@@ -228,24 +228,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             ),
           ),
           child: const Text('Back to Login'),
-        ),
-        
-        const SizedBox(height: AppTheme.md),
-        
-        // Didn't receive email
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text("Didn't receive the email?"),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _emailSent = false;
-                });
-              },
-              child: const Text('Try Again'),
-            ),
-          ],
         ),
       ],
     );

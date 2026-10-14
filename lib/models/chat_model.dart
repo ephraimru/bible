@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'chat_model.freezed.dart';
@@ -74,7 +74,7 @@ class ChatMessageModel with _$ChatMessageModel {
   factory ChatMessageModel.fromJson(Map<String, dynamic> json) =>
       _$ChatMessageModelFromJson(json);
 
-  factory ChatMessageModel.fromFirestore(DocumentSnapshot doc) {
+  factory ChatMessageModel.
     final data = doc.data() as Map<String, dynamic>;
     return ChatMessageModel.fromJson({...data, 'id': doc.id});
   }
@@ -116,7 +116,7 @@ class ChatRoomModel with _$ChatRoomModel {
   factory ChatRoomModel.fromJson(Map<String, dynamic> json) =>
       _$ChatRoomModelFromJson(json);
 
-  factory ChatRoomModel.fromFirestore(DocumentSnapshot doc) {
+  factory ChatRoomModel.
     final data = doc.data() as Map<String, dynamic>;
     return ChatRoomModel.fromJson({...data, 'id': doc.id});
   }
@@ -144,7 +144,7 @@ class ChatPresenceModel with _$ChatPresenceModel {
   factory ChatPresenceModel.fromJson(Map<String, dynamic> json) =>
       _$ChatPresenceModelFromJson(json);
 
-  factory ChatPresenceModel.fromFirestore(DocumentSnapshot doc) {
+  factory ChatPresenceModel.
     final data = doc.data() as Map<String, dynamic>;
     return ChatPresenceModel.fromJson({...data, 'id': doc.id});
   }
@@ -171,7 +171,7 @@ class ModerationReportModel with _$ModerationReportModel {
   factory ModerationReportModel.fromJson(Map<String, dynamic> json) =>
       _$ModerationReportModelFromJson(json);
 
-  factory ModerationReportModel.fromFirestore(DocumentSnapshot doc) {
+  factory ModerationReportModel.
     final data = doc.data() as Map<String, dynamic>;
     return ModerationReportModel.fromJson({...data, 'id': doc.id});
   }
@@ -196,7 +196,7 @@ class ChatNotificationModel with _$ChatNotificationModel {
   factory ChatNotificationModel.fromJson(Map<String, dynamic> json) =>
       _$ChatNotificationModelFromJson(json);
 
-  factory ChatNotificationModel.fromFirestore(DocumentSnapshot doc) {
+  factory ChatNotificationModel.
     final data = doc.data() as Map<String, dynamic>;
     return ChatNotificationModel.fromJson({...data, 'id': doc.id});
   }

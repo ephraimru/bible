@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
-import '../../services/auth_service.dart';
+import '../../services/local_auth_service.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -37,10 +37,33 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
     
     try {
-      await ref.read(authServiceProvider).signInWithEmailAndPassword(
+      await ref.read(localAuthServiceProvider).signInWithEmailAndPassword(
             email: _emailController.text.trim(),
             password: _passwordController.text,
           );
+      
+      if (mounted) {
+        context.go('/home');
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    
+    try {
+      await ref.read(localAuthServiceProvider).signInWithGoogle();
       
       if (mounted) {
         context.go('/home');
@@ -98,26 +121,39 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     style: Theme.of(context).textTheme.displaySmall,
                   ),
                   Text(
-                    'Log in to continue your faith journey',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey,
-                        ),
+                    'Sign in to continue your faith journey',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
+              const SizedBox(height: AppTheme.xl),
               
-              const SizedBox(height: AppTheme.xxl),
+              // Error message
+              if (_errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppTheme.md),
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(
+                      color: Colors.red,
+                      fontSize: 14,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
               
               // Email field
               TextFormField(
                 controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Email',
-                  prefixIcon: Icon(Icons.email_outlined),
-                  border: OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.email),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.sm),
+                  ),
                 ),
+                keyboardType: TextInputType.emailAddress,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your email';
@@ -128,20 +164,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   return null;
                 },
               ),
-              
               const SizedBox(height: AppTheme.md),
               
               // Password field
               TextFormField(
                 controller: _passwordController,
-                obscureText: _obscurePassword,
-                textInputAction: TextInputAction.done,
                 decoration: InputDecoration(
                   labelText: 'Password',
-                  prefixIcon: const Icon(Icons.lock_outline),
+                  prefixIcon: const Icon(Icons.lock),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscurePassword ? Icons.visibility_outlined : Icons.visibility,
+                      _obscurePassword ? Icons.visibility : Icons.visibility_off,
                     ),
                     onPressed: () {
                       setState(() {
@@ -149,8 +182,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       });
                     },
                   ),
-                  border: const OutlineInputBorder(),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.sm),
+                  ),
                 ),
+                obscureText: _obscurePassword,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your password';
@@ -160,10 +196,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   }
                   return null;
                 },
-                onFieldSubmitted: (_) => _submit(),
               ),
-              
-              const SizedBox(height: AppTheme.sm),
+              const SizedBox(height: AppTheme.md),
               
               // Forgot password
               Align(
@@ -173,27 +207,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   child: const Text('Forgot Password?'),
                 ),
               ),
-              
-              // Error message
-              if (_errorMessage != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: AppTheme.sm),
-                  child: Text(
-                    _errorMessage!,
-                    style: const TextStyle(color: Colors.red),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              
               const SizedBox(height: AppTheme.md),
               
-              // Login button
+              // Submit button
               ElevatedButton(
                 onPressed: _isLoading ? null : _submit,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: AppTheme.md),
                   shape: RoundedRectangleBorder(
-                    borderRadius: AppTheme.mediumBorderRadius,
+                    borderRadius: BorderRadius.circular(AppTheme.sm),
                   ),
                 ),
                 child: _isLoading
@@ -202,7 +224,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       )
                     : const Text('Log In'),
               ),
-              
               const SizedBox(height: AppTheme.md),
               
               // Divider
@@ -210,67 +231,46 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 children: [
                   Expanded(child: Divider()),
                   Padding(
-                    padding: EdgeInsets.symmetric(horizontal: AppTheme.md),
-                    child: Text('or'),
+                    padding: EdgeInsets.symmetric(horizontal: AppTheme.sm),
+                    child: Text('or continue with'),
                   ),
                   Expanded(child: Divider()),
                 ],
               ),
-              
               const SizedBox(height: AppTheme.md),
               
               // Social login buttons
-              OutlinedButton.icon(
-                onPressed: () async {
-                  try {
-                    setState(() => _isLoading = true);
-                    await ref.read(authServiceProvider).signInWithGoogle();
-                    if (mounted) context.go('/home');
-                  } catch (e) {
-                    setState(() {
-                      _errorMessage = e.toString().replaceAll('Exception: ', '');
-                    });
-                  } finally {
-                    setState(() => _isLoading = false);
-                  }
-                },
-                icon: const Icon(Icons.g_mobiledata),
-                label: const Text('Continue with Google'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: AppTheme.md),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: AppTheme.mediumBorderRadius,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Google login
+                  IconButton(
+                    icon: const Icon(Icons.g_mobiledata, size: 40),
+                    onPressed: _isLoading ? null : _signInWithGoogle,
+                    style: IconButton.styleFrom(
+                      padding: const EdgeInsets.all(AppTheme.md),
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.red,
+                      shape: const CircleBorder(),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: AppTheme.md),
+                  
+                  // Apple login (placeholder)
+                  IconButton(
+                    icon: const Icon(Icons.apple, size: 40),
+                    onPressed: _isLoading ? null : () => _showAppleLogin(),
+                    style: IconButton.styleFrom(
+                      padding: const EdgeInsets.all(AppTheme.md),
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.black,
+                      shape: const CircleBorder(),
+                    ),
+                  ),
+                ],
               ),
               
               const SizedBox(height: AppTheme.md),
-              
-              OutlinedButton.icon(
-                onPressed: () async {
-                  try {
-                    setState(() => _isLoading = true);
-                    await ref.read(authServiceProvider).signInWithApple();
-                    if (mounted) context.go('/home');
-                  } catch (e) {
-                    setState(() {
-                      _errorMessage = e.toString().replaceAll('Exception: ', '');
-                    });
-                  } finally {
-                    setState(() => _isLoading = false);
-                  }
-                },
-                icon: const Icon(Icons.apple),
-                label: const Text('Continue with Apple'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: AppTheme.md),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: AppTheme.mediumBorderRadius,
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: AppTheme.lg),
               
               // Don't have an account
               Row(
@@ -286,6 +286,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _showAppleLogin() {
+    // For local mode, we'll just show a message
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Apple Sign In is not available in local mode. Please use email or Google.'),
       ),
     );
   }

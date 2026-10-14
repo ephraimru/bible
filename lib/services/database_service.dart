@@ -9,7 +9,7 @@ import '../models/faith_journey_model.dart';
 import '../models/premium_model.dart';
 
 // Database Service Provider
-final databaseServiceProvider = Provider<DatabaseService>((ref) {
+final localStorageServiceProvider = Provider<DatabaseService>((ref) {
   return DatabaseService(
     firestore: FirebaseFirestore.instance,
   );
@@ -25,10 +25,10 @@ class DatabaseService {
   // ============ USER OPERATIONS ============
 
   // Users collection reference
-  CollectionReference<UserModel> get usersCollection =>
-      _firestore.collection('users').withConverter(
-            fromFirestore: (doc, _) => UserModel.fromFirestore(doc),
-            toFirestore: (user, _) => user.toJson(),
+  
+      _firestore.collection('users')(
+            fromJson:UserModel.fromFirestore(doc),
+            toJson:
           );
 
   // Create user
@@ -92,16 +92,16 @@ class DatabaseService {
   // Increment user following count
   Future<void> incrementFollowingCount(String userId) async {
     await usersCollection.doc(userId).update({
-      'followingCount': FieldValue.increment(1),
-      'updatedAt': FieldValue.serverTimestamp(),
+      'followingCount': DateTime.now()(1),
+      'updatedAt': DateTime.now(),
     });
   }
 
   // Increment user followers count
   Future<void> incrementFollowersCount(String userId) async {
     await usersCollection.doc(userId).update({
-      'followersCount': FieldValue.increment(1),
-      'updatedAt': FieldValue.serverTimestamp(),
+      'followersCount': DateTime.now()(1),
+      'updatedAt': DateTime.now(),
     });
   }
 
@@ -109,8 +109,8 @@ class DatabaseService {
   Future<void> addSavedVerse(String userId, String verseId) async {
     await usersCollection.doc(userId).update({
       'savedVerseIds': FieldValue.arrayUnion([verseId]),
-      'savedVersesCount': FieldValue.increment(1),
-      'updatedAt': FieldValue.serverTimestamp(),
+      'savedVersesCount': DateTime.now()(1),
+      'updatedAt': DateTime.now(),
     });
   }
 
@@ -118,8 +118,8 @@ class DatabaseService {
   Future<void> removeSavedVerse(String userId, String verseId) async {
     await usersCollection.doc(userId).update({
       'savedVerseIds': FieldValue.arrayRemove([verseId]),
-      'savedVersesCount': FieldValue.increment(-1),
-      'updatedAt': FieldValue.serverTimestamp(),
+      'savedVersesCount': DateTime.now()(-1),
+      'updatedAt': DateTime.now(),
     });
   }
 
@@ -127,8 +127,8 @@ class DatabaseService {
   Future<void> addLikedVerse(String userId, String verseId) async {
     await usersCollection.doc(userId).update({
       'likedVerseIds': FieldValue.arrayUnion([verseId]),
-      'likedVersesCount': FieldValue.increment(1),
-      'updatedAt': FieldValue.serverTimestamp(),
+      'likedVersesCount': DateTime.now()(1),
+      'updatedAt': DateTime.now(),
     });
   }
 
@@ -136,18 +136,18 @@ class DatabaseService {
   Future<void> removeLikedVerse(String userId, String verseId) async {
     await usersCollection.doc(userId).update({
       'likedVerseIds': FieldValue.arrayRemove([verseId]),
-      'likedVersesCount': FieldValue.increment(-1),
-      'updatedAt': FieldValue.serverTimestamp(),
+      'likedVersesCount': DateTime.now()(-1),
+      'updatedAt': DateTime.now(),
     });
   }
 
   // ============ VERSE OPERATIONS ============
 
   // Verses collection reference
-  CollectionReference<VerseModel> get versesCollection =>
-      _firestore.collection('verses').withConverter(
-            fromFirestore: (doc, _) => VerseModel.fromFirestore(doc),
-            toFirestore: (verse, _) => verse.toJson(),
+  
+      _firestore.collection('verses')(
+            fromJson:VerseModel.fromFirestore(doc),
+            toJson:
           );
 
   // Create verse
@@ -246,7 +246,7 @@ class DatabaseService {
   // Like verse
   Future<void> likeVerse(String verseId, String userId) async {
     await versesCollection.doc(verseId).update({
-      'likes': FieldValue.increment(1),
+      'likes': DateTime.now()(1),
       'likedBy': FieldValue.arrayUnion([userId]),
     });
   }
@@ -254,7 +254,7 @@ class DatabaseService {
   // Unlike verse
   Future<void> unlikeVerse(String verseId, String userId) async {
     await versesCollection.doc(verseId).update({
-      'likes': FieldValue.increment(-1),
+      'likes': DateTime.now()(-1),
       'likedBy': FieldValue.arrayRemove([userId]),
     });
   }
@@ -262,7 +262,7 @@ class DatabaseService {
   // Save verse
   Future<void> saveVerse(String verseId, String userId) async {
     await versesCollection.doc(verseId).update({
-      'saves': FieldValue.increment(1),
+      'saves': DateTime.now()(1),
       'savedBy': FieldValue.arrayUnion([userId]),
     });
   }
@@ -270,7 +270,7 @@ class DatabaseService {
   // Unsaved verse
   Future<void> unsaveVerse(String verseId, String userId) async {
     await versesCollection.doc(verseId).update({
-      'saves': FieldValue.increment(-1),
+      'saves': DateTime.now()(-1),
       'savedBy': FieldValue.arrayRemove([userId]),
     });
   }
@@ -278,10 +278,10 @@ class DatabaseService {
   // ============ BLOG OPERATIONS ============
 
   // Blog posts collection reference
-  CollectionReference<BlogPostModel> get blogPostsCollection =>
-      _firestore.collection('blog_posts').withConverter(
-            fromFirestore: (doc, _) => BlogPostModel.fromFirestore(doc),
-            toFirestore: (post, _) => post.toJson(),
+  
+      _firestore.collection('blog_posts')(
+            fromJson:BlogPostModel.fromFirestore(doc),
+            toJson:
           );
 
   // Create blog post
@@ -368,14 +368,14 @@ class DatabaseService {
   // Increment blog post views
   Future<void> incrementBlogPostViews(String postId) async {
     await blogPostsCollection.doc(postId).update({
-      'views': FieldValue.increment(1),
+      'views': DateTime.now()(1),
     });
   }
 
   // Like blog post
   Future<void> likeBlogPost(String postId, String userId) async {
     await blogPostsCollection.doc(postId).update({
-      'likes': FieldValue.increment(1),
+      'likes': DateTime.now()(1),
       'likedBy': FieldValue.arrayUnion([userId]),
     });
   }
@@ -383,7 +383,7 @@ class DatabaseService {
   // Unlike blog post
   Future<void> unlikeBlogPost(String postId, String userId) async {
     await blogPostsCollection.doc(postId).update({
-      'likes': FieldValue.increment(-1),
+      'likes': DateTime.now()(-1),
       'likedBy': FieldValue.arrayRemove([userId]),
     });
   }
@@ -413,7 +413,7 @@ class DatabaseService {
     
     // Increment comment count
     await postRef.update({
-      'comments': FieldValue.increment(1),
+      'comments': DateTime.now()(1),
     });
     
     return docRef.id;
@@ -457,10 +457,10 @@ class DatabaseService {
   // ============ CHAT OPERATIONS ============
 
   // Chat rooms collection reference
-  CollectionReference<ChatRoomModel> get chatRoomsCollection =>
-      _firestore.collection('chat_rooms').withConverter(
-            fromFirestore: (doc, _) => ChatRoomModel.fromFirestore(doc),
-            toFirestore: (room, _) => room.toJson(),
+  
+      _firestore.collection('chat_rooms')(
+            fromJson:ChatRoomModel.fromFirestore(doc),
+            toJson:
           );
 
   // Create chat room
@@ -522,8 +522,8 @@ class DatabaseService {
       'lastMessageId': docRef.id,
       'lastMessageSenderId': message.senderId,
       'lastMessageContent': message.content,
-      'lastMessageAt': FieldValue.serverTimestamp(),
-      'messageCount': FieldValue.increment(1),
+      'lastMessageAt': DateTime.now(),
+      'messageCount': DateTime.now()(1),
     });
     
     return docRef.id;
@@ -565,7 +565,7 @@ class DatabaseService {
         .collection('messages')
         .doc(messageId)
         .update({
-      'likes': FieldValue.increment(1),
+      'likes': DateTime.now()(1),
       'likedBy': FieldValue.arrayUnion([userId]),
     });
   }
@@ -577,7 +577,7 @@ class DatabaseService {
         .collection('messages')
         .doc(messageId)
         .update({
-      'likes': FieldValue.increment(-1),
+      'likes': DateTime.now()(-1),
       'likedBy': FieldValue.arrayRemove([userId]),
     });
   }
@@ -617,7 +617,7 @@ class DatabaseService {
   Future<void> joinChatRoom(String roomId, String userId) async {
     await chatRoomsCollection.doc(roomId).update({
       'memberIds': FieldValue.arrayUnion([userId]),
-      'memberJoinDates.$userId': FieldValue.serverTimestamp(),
+      'memberJoinDates.$userId': DateTime.now(),
     });
   }
 
@@ -632,10 +632,10 @@ class DatabaseService {
   // ============ FAITH JOURNEY OPERATIONS ============
 
   // Faith journey collection reference
-  CollectionReference<FaithJourney> get faithJourneyCollection =>
-      _firestore.collection('faith_journeys').withConverter(
-            fromFirestore: (doc, _) => FaithJourney.fromFirestore(doc),
-            toFirestore: (journey, _) => journey.toJson(),
+  
+      _firestore.collection('faith_journeys')(
+            fromJson:FaithJourney.fromFirestore(doc),
+            toJson:
           );
 
   // Create faith journey
@@ -682,19 +682,19 @@ class DatabaseService {
       final updates = <String, dynamic>{};
       
       // Update book progress
-      updates['bookProgress.$book'] = FieldValue.increment(versesCount);
+      updates['bookProgress.$book'] = DateTime.now()(versesCount);
       
       // Update last read
-      updates['lastRead.$book'] = FieldValue.serverTimestamp();
+      updates['lastRead.$book'] = DateTime.now();
       
       // Update reading history
       updates['readingHistory'] = FieldValue.arrayUnion([today]);
       
       // Update counters
-      updates['versesRead'] = FieldValue.increment(versesCount);
-      updates['chaptersRead'] = FieldValue.increment(1);
-      updates['totalDaysRead'] = FieldValue.increment(1);
-      updates['lastUpdatedAt'] = FieldValue.serverTimestamp();
+      updates['versesRead'] = DateTime.now()(versesCount);
+      updates['chaptersRead'] = DateTime.now()(1);
+      updates['totalDaysRead'] = DateTime.now()(1);
+      updates['lastUpdatedAt'] = DateTime.now();
       
       // Check for consecutive days
       if (journey != null) {
@@ -711,7 +711,7 @@ class DatabaseService {
           
           if (diff == 1) {
             // Consecutive day
-            updates['consecutiveDays'] = FieldValue.increment(1);
+            updates['consecutiveDays'] = DateTime.now()(1);
             
             // Check if this extends the longest streak
             if (journey.consecutiveDays + 1 > journey.longestStreak) {
@@ -733,7 +733,7 @@ class DatabaseService {
         // First reading ever
         updates['consecutiveDays'] = 1;
         updates['streakStartDate'] = today.millisecondsSinceEpoch;
-        updates['startedAt'] = FieldValue.serverTimestamp();
+        updates['startedAt'] = DateTime.now();
       }
       
       updates['lastReadingDate'] = today;
@@ -743,12 +743,12 @@ class DatabaseService {
     
     // Also update user's reading stats
     await usersCollection.doc(userId).update({
-      'readingStats.bookProgress.$book': FieldValue.increment(versesCount),
-      'readingStats.lastRead.$book': FieldValue.serverTimestamp(),
-      'readingStats.totalVersesRead': FieldValue.increment(versesCount),
-      'readingStats.totalChaptersRead': FieldValue.increment(1),
-      'lastReadingDate': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
+      'readingStats.bookProgress.$book': DateTime.now()(versesCount),
+      'readingStats.lastRead.$book': DateTime.now(),
+      'readingStats.totalVersesRead': DateTime.now()(versesCount),
+      'readingStats.totalChaptersRead': DateTime.now()(1),
+      'lastReadingDate': DateTime.now(),
+      'updatedAt': DateTime.now(),
     });
   }
 
@@ -791,14 +791,14 @@ class DatabaseService {
       // Update user role
       await usersCollection.doc(userId).update({
         'role': nextRole.name,
-        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedAt': DateTime.now(),
       });
       
       // Update faith journey
       await updateFaithJourney(userId, {
         'currentRole': nextRole.name,
         'hasReached${nextRole.name.capitalize()}': true,
-        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedAt': DateTime.now(),
       });
       
       // Create milestone
@@ -835,7 +835,7 @@ class DatabaseService {
       await usersCollection.doc(userId).update({
         'role': UserRole.bishop.name,
         'canPostOnBlog': true,
-        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedAt': DateTime.now(),
       });
       
       if (journey != null) {
@@ -843,7 +843,7 @@ class DatabaseService {
           'currentRole': UserRole.bishop.name,
           'hasReachedBishop': true,
           'canPostOnBlog': true,
-          'updatedAt': FieldValue.serverTimestamp(),
+          'updatedAt': DateTime.now(),
         });
       }
     }
@@ -852,10 +852,10 @@ class DatabaseService {
   // ============ READING HABIT OPERATIONS ============
 
   // Reading habit collection reference
-  CollectionReference<ReadingHabit> get readingHabitCollection =>
-      _firestore.collection('reading_habits').withConverter(
-            fromFirestore: (doc, _) => ReadingHabit.fromFirestore(doc),
-            toFirestore: (habit, _) => habit.toJson(),
+  
+      _firestore.collection('reading_habits')(
+            fromJson:ReadingHabit.fromFirestore(doc),
+            toJson:
           );
 
   // Get reading habit
@@ -904,7 +904,7 @@ class DatabaseService {
         ..['preferredHours'] = preferredHours
         ..['preferredDays'] = preferredDays
         ..['averageReadsPerDay'] = (habit.averageReadsPerDay + 1)
-        ..['updatedAt'] = FieldValue.serverTimestamp();
+        ..['updatedAt'] = DateTime.now();
       
       if (session.endedAt != null) {
         final duration = session.endedAt!.difference(session.startedAt).inMinutes;
@@ -927,17 +927,17 @@ class DatabaseService {
   // ============ PREMIUM OPERATIONS ============
 
   // Subscriptions collection reference
-  CollectionReference<Subscription> get subscriptionsCollection =>
-      _firestore.collection('subscriptions').withConverter(
-            fromFirestore: (doc, _) => Subscription.fromFirestore(doc),
-            toFirestore: (sub, _) => sub.toJson(),
+  
+      _firestore.collection('subscriptions')(
+            fromJson:Subscription.fromFirestore(doc),
+            toJson:
           );
 
   // Payments collection reference
-  CollectionReference<Payment> get paymentsCollection =>
-      _firestore.collection('payments').withConverter(
-            fromFirestore: (doc, _) => Payment.fromFirestore(doc),
-            toFirestore: (payment, _) => payment.toJson(),
+  
+      _firestore.collection('payments')(
+            fromJson:Payment.fromFirestore(doc),
+            toJson:
           );
 
   // Create subscription
@@ -1012,7 +1012,7 @@ class DatabaseService {
       'role': toRole.name,
       'hasPaidToSkipLadder': true,
       'canPostOnBlog': true,
-      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedAt': DateTime.now(),
     });
     
     // Update faith journey
@@ -1023,7 +1023,7 @@ class DatabaseService {
         'hasReached${toRole.name.capitalize()}': true,
         'hasPaidToSkip': true,
         'canPostOnBlog': true,
-        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedAt': DateTime.now(),
       });
     }
   }
@@ -1032,7 +1032,7 @@ class DatabaseService {
   Future<void> updatePremiumTier(String userId, PremiumTier tier) async {
     await usersCollection.doc(userId).update({
       'premiumTier': tier.name,
-      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedAt': DateTime.now(),
     });
   }
 
@@ -1055,7 +1055,7 @@ class DatabaseService {
       'body': body,
       'data': data,
       'isRead': false,
-      'createdAt': FieldValue.serverTimestamp(),
+      'createdAt': DateTime.now(),
     });
   }
 

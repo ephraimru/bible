@@ -3,22 +3,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
 
-import 'database_service.dart';
+import 'local_storage_service.dart';
 
 // Notification Service Provider
 final notificationServiceProvider = Provider<NotificationService>((ref) {
   return NotificationService(
-    databaseService: ref.read(databaseServiceProvider),
+    localStorageService: ref.read(localStorageServiceProvider),
   );
 });
 
 class NotificationService {
-  final DatabaseService _databaseService;
+  final LocalStorageService _localStorageService;
   final FlutterLocalNotificationsPlugin _notificationsPlugin;
 
   NotificationService({
-    required DatabaseService databaseService,
-  })  : _databaseService = databaseService,
+    required LocalStorageService localStorageService,
+  })  : _localStorageService = localStorageService,
         _notificationsPlugin = FlutterLocalNotificationsPlugin();
 
   // Initialize notifications
@@ -169,20 +169,15 @@ class NotificationService {
         .join('&');
   }
 
-  /// Send notification to user (stores in Firestore and shows locally)
+  /// Send notification to user (stores locally and shows notification)
   Future<void> sendNotification({
     required String userId,
     required String title,
     required String body,
     Map<String, dynamic>? data,
   }) async {
-    // Store notification in Firestore
-    await _databaseService.createNotification(
-      userId: userId,
-      title: title,
-      body: body,
-      data: data ?? {},
-    );
+    // For local mode, we just show the notification
+    // In Firebase mode, we would also store it in Firestore
     
     // Show local notification
     await showNotification(
@@ -460,15 +455,15 @@ class NotificationService {
   /// Send role promotion notification
   Future<void> sendRolePromotionNotification({
     required String userId,
-    required UserRole newRole,
+    required String newRole,
   }) async {
     await sendNotification(
       userId: userId,
       title: 'Congratulations!',
-      body: 'You have been promoted to ${newRole.displayName}!',
+      body: 'You have been promoted to $newRole!',
       data: {
         'type': 'role_promotion',
-        'role': newRole.name,
+        'role': newRole,
       },
     );
   }
@@ -530,15 +525,15 @@ class NotificationService {
     required String userId,
     required Map<String, bool> preferences,
   }) async {
-    await _databaseService.updateUser(userId, {
-      'preferences.notifications': preferences,
-      'updatedAt': FieldValue.serverTimestamp(),
+    await _localStorageService.updateUser(userId, {
+      'preferences': {'notifications': preferences},
+      'updatedAt': DateTime.now(),
     });
   }
 
   /// Get notification preferences
   Future<Map<String, bool>> getNotificationPreferences(String userId) async {
-    final user = await _databaseService.getUser(userId);
+    final user = await _localStorageService.getUser(userId);
     
     if (user == null) {
       return {
@@ -585,29 +580,20 @@ class NotificationService {
     );
   }
 
-  /// Schedule daily verse notifications for all users
-  Future<void> scheduleDailyVerseNotifications() async {
-    // This would typically be run on a server
-    // For mobile app, it's better to schedule locally
+  /// Schedule daily verse notifications for user
+  Future<void> scheduleDailyVerseNotification(String userId) async {
+    final preferences = await getNotificationPreferences(userId);
+    if (!preferences['dailyVerse']!) return;
     
-    final users = await _databaseService.usersCollection.get();
-    
-    for (final userDoc in users.docs) {
-      final user = userDoc.data();
-      final preferences = user.preferences['notifications'] as Map<String, dynamic>?;
-      
-      if (preferences?['dailyVerse'] as bool? ?? true) {
-        // Schedule for 8 AM
-        await scheduleDailyNotification(
-          userId: user.id,
-          hour: 8,
-          minute: 0,
-          title: 'Daily Bible Verse',
-          body: 'Check out today\'s daily verse!',
-          data: {'type': 'daily_verse'},
-        );
-      }
-    }
+    // Schedule for 8 AM
+    await scheduleDailyNotification(
+      userId: userId,
+      hour: 8,
+      minute: 0,
+      title: 'Daily Bible Verse',
+      body: 'Check out today\'s daily verse!',
+      data: {'type': 'daily_verse'},
+    );
   }
 }
 

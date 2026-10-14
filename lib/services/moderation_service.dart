@@ -9,7 +9,7 @@ import 'database_service.dart';
 // Moderation Service Provider
 final moderationServiceProvider = Provider<ModerationService>((ref) {
   return ModerationService(
-    databaseService: ref.read(databaseServiceProvider),
+    databaseService: ref.read(localStorageServiceProvider),
   );
 });
 
@@ -408,13 +408,13 @@ class ModerationService {
       'userId': userId,
       'reason': reason,
       'reportedBy': reportedBy,
-      'createdAt': FieldValue.serverTimestamp(),
+      'createdAt': DateTime.now(),
       'status': 'active',
     });
     
     // Update user
     await _databaseService.updateUser(userId, {
-      'warnings': FieldValue.increment(1),
+      'warnings': DateTime.now()(1),
     });
     
     // Send notification
@@ -438,7 +438,7 @@ class ModerationService {
     // Update user
     await _databaseService.updateUser(userId, {
       'status': UserStatus.suspended.name,
-      'suspendedAt': FieldValue.serverTimestamp(),
+      'suspendedAt': DateTime.now(),
       'suspensionEndDate': endDate,
       'suspensionReason': reason,
       'suspendedBy': suspendedBy,
@@ -451,10 +451,10 @@ class ModerationService {
       'userId': userId,
       'reason': reason,
       'duration': duration.inDays,
-      'startDate': FieldValue.serverTimestamp(),
+      'startDate': DateTime.now(),
       'endDate': endDate,
       'suspendedBy': suspendedBy,
-      'createdAt': FieldValue.serverTimestamp(),
+      'createdAt': DateTime.now(),
     });
     
     // Send notification
@@ -479,7 +479,7 @@ class ModerationService {
     // Update user
     await _databaseService.updateUser(userId, {
       'status': UserStatus.banned.name,
-      'bannedAt': FieldValue.serverTimestamp(),
+      'bannedAt': DateTime.now(),
       'banReason': reason,
       'bannedBy': bannedBy,
     });
@@ -491,7 +491,7 @@ class ModerationService {
       'userId': userId,
       'reason': reason,
       'bannedBy': bannedBy,
-      'createdAt': FieldValue.serverTimestamp(),
+      'createdAt': DateTime.now(),
     });
   }
 
@@ -611,7 +611,7 @@ class ModerationService {
         .update({
       'status': status.name,
       'reviewedBy': reviewedBy,
-      'reviewedAt': FieldValue.serverTimestamp(),
+      'reviewedAt': DateTime.now(),
       'actionTaken': actionTaken,
       'actionDescription': actionDescription,
     });
@@ -662,7 +662,7 @@ class ModerationService {
                   .update({
                 'isDeleted': true,
                 'deletedBy': 'auto-moderator',
-                'deletedAt': FieldValue.serverTimestamp(),
+                'deletedAt': DateTime.now(),
               });
             }
             

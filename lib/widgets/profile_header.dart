@@ -128,7 +128,7 @@ class ProfileHeader extends StatelessWidget {
         const SizedBox(height: AppTheme.md),
         
         // Follow button (if viewing own profile, show edit)
-        if (user.id == ref?.read(authServiceProvider)?.currentUserId)
+        if (user.id == ref?.read(localAuthServiceProvider)?.currentUserId)
           ElevatedButton.icon(
             onPressed: () {
               // Edit profile

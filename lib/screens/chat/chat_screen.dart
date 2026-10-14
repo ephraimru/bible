@@ -29,8 +29,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<void> _loadRooms() async {
     try {
-      final rooms = await ref.read(databaseServiceProvider).getChatRooms();
-      final generalRoom = await ref.read(databaseServiceProvider).getGeneralChatRoom();
+      final rooms = await ref.read(localStorageServiceProvider).getChatRooms();
+      final generalRoom = await ref.read(localStorageServiceProvider).getGeneralChatRoom();
       
       setState(() {
         _rooms = rooms;

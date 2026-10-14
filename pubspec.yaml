@@ -10,13 +10,6 @@ dependencies:
   flutter:
     sdk: flutter
   
-  # Firebase
-  firebase_core: ^2.24.0
-  firebase_auth: ^4.12.0
-  cloud_firestore: ^4.14.0
-  firebase_storage: ^11.6.0
-  firebase_messaging: ^14.7.0
-  
   # State Management
   flutter_riverpod: ^2.4.9
   riverpod_annotation: ^2.3.3
@@ -47,9 +40,6 @@ dependencies:
   # ML/Moderation
   google_mlkit_text_recognition: ^0.11.0
   natural_language: ^0.0.4
-  
-  # In-App Purchases
-  in_app_purchase: ^3.1.13
   
   # Notifications
   flutter_local_notifications: ^16.3.0

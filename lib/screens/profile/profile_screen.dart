@@ -33,7 +33,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(currentUserProvider).value;
+    final user = ref.watch(localCurrentUserProvider).value;
     final journeyStats = ref.watch(faithJourneyStatsProvider);
     
     if (user == null) {
@@ -112,7 +112,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               // Logout button
               ElevatedButton.icon(
                 onPressed: () async {
-                  await ref.read(authServiceProvider).signOut();
+                  await ref.read(localAuthServiceProvider).signOut();
                   if (mounted) {
                     context.go('/welcome');
                   }

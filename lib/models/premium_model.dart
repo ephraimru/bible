@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'premium_model.freezed.dart';
@@ -104,7 +104,7 @@ class PremiumFeature with _$PremiumFeature {
   factory PremiumFeature.fromJson(Map<String, dynamic> json) =>
       _$PremiumFeatureFromJson(json);
 
-  factory PremiumFeature.fromFirestore(DocumentSnapshot doc) {
+  factory PremiumFeature.
     final data = doc.data() as Map<String, dynamic>;
     return PremiumFeature.fromJson({...data, 'id': doc.id});
   }
@@ -137,7 +137,7 @@ class Subscription with _$Subscription {
   factory Subscription.fromJson(Map<String, dynamic> json) =>
       _$SubscriptionFromJson(json);
 
-  factory Subscription.fromFirestore(DocumentSnapshot doc) {
+  factory Subscription.
     final data = doc.data() as Map<String, dynamic>;
     return Subscription.fromJson({...data, 'id': doc.id});
   }
@@ -168,7 +168,7 @@ class Payment with _$Payment {
   factory Payment.fromJson(Map<String, dynamic> json) =>
       _$PaymentFromJson(json);
 
-  factory Payment.fromFirestore(DocumentSnapshot doc) {
+  factory Payment.
     final data = doc.data() as Map<String, dynamic>;
     return Payment.fromJson({...data, 'id': doc.id});
   }
@@ -196,7 +196,7 @@ class PremiumContent with _$PremiumContent {
   factory PremiumContent.fromJson(Map<String, dynamic> json) =>
       _$PremiumContentFromJson(json);
 
-  factory PremiumContent.fromFirestore(DocumentSnapshot doc) {
+  factory PremiumContent.
     final data = doc.data() as Map<String, dynamic>;
     return PremiumContent.fromJson({...data, 'id': doc.id});
   }

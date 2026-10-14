@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'user_model.freezed.dart';
@@ -82,11 +81,6 @@ class UserModel with _$UserModel {
 
   factory UserModel.fromJson(Map<String, dynamic> json) =>
       _$UserModelFromJson(json);
-
-  factory UserModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return UserModel.fromJson({...data, 'id': doc.id});
-  }
 }
 
 /// Extension for role progression logic

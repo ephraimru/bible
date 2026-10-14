@@ -29,16 +29,16 @@ class _DailyVerseSectionState extends ConsumerState<DailyVerseSection> {
 
   Future<void> _loadDailyVerse() async {
     try {
-      final dailyVerseModel = await ref.read(bibleServiceProvider).getDailyVerse();
+      final dailyVerseModel = await ref.read(mockBibleServiceProvider).getDailyVerse();
       if (dailyVerseModel != null) {
         setState(() {
           _dailyVerse = dailyVerseModel.verse;
         });
         
         // Check if user has liked or saved this verse
-        final userId = ref.read(authServiceProvider).currentUserId;
+        final userId = ref.read(localAuthServiceProvider).currentUserId;
         if (userId != null) {
-          final user = await ref.read(databaseServiceProvider).getUser(userId);
+          final user = await ref.read(localStorageServiceProvider).getUser(userId);
           if (user != null) {
             setState(() {
               _isLiked = user.likedVerseIds.contains(_dailyVerse?.id);
@@ -57,10 +57,10 @@ class _DailyVerseSectionState extends ConsumerState<DailyVerseSection> {
   }
 
   Future<void> _toggleLike() async {
-    final userId = ref.read(authServiceProvider).currentUserId;
+    final userId = ref.read(localAuthServiceProvider).currentUserId;
     if (userId == null || _dailyVerse == null) return;
     
-    final databaseService = ref.read(databaseServiceProvider);
+    final databaseService = ref.read(localStorageServiceProvider);
     
     if (_isLiked) {
       await databaseService.unlikeVerse(_dailyVerse!.id, userId);
@@ -76,10 +76,10 @@ class _DailyVerseSectionState extends ConsumerState<DailyVerseSection> {
   }
 
   Future<void> _toggleSave() async {
-    final userId = ref.read(authServiceProvider).currentUserId;
+    final userId = ref.read(localAuthServiceProvider).currentUserId;
     if (userId == null || _dailyVerse == null) return;
     
-    final databaseService = ref.read(databaseServiceProvider);
+    final databaseService = ref.read(localStorageServiceProvider);
     
     if (_isSaved) {
       await databaseService.unsaveVerse(_dailyVerse!.id, userId);

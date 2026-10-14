@@ -43,7 +43,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
 
   Future<void> _loadRoom() async {
     try {
-      final room = await ref.read(databaseServiceProvider).getChatRoom(widget.roomId);
+      final room = await ref.read(localStorageServiceProvider).getChatRoom(widget.roomId);
       if (room != null) {
         setState(() {
           _room = room;
@@ -52,9 +52,9 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         await _loadMessages();
         
         // Join room
-        final userId = ref.read(authServiceProvider).currentUserId;
+        final userId = ref.read(localAuthServiceProvider).currentUserId;
         if (userId != null) {
-          await ref.read(databaseServiceProvider).joinChatRoom(room.id, userId);
+          await ref.read(localStorageServiceProvider).joinChatRoom(room.id, userId);
         }
       }
     } catch (e) {
@@ -66,7 +66,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
 
   Future<void> _loadMessages() async {
     try {
-      final messages = await ref.read(databaseServiceProvider).getRecentChatMessages(
+      final messages = await ref.read(localStorageServiceProvider).getRecentChatMessages(
             widget.roomId,
             limit: 50,
           );
@@ -101,7 +101,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
     
-    final userId = ref.read(authServiceProvider).currentUserId;
+    final userId = ref.read(localAuthServiceProvider).currentUserId;
     if (userId == null || _room == null) return;
     
     setState(() {
@@ -128,7 +128,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
       }
       
       // Get user info
-      final user = ref.read(currentUserProvider).value;
+      final user = ref.read(localCurrentUserProvider).value;
       
       // Create message
       final message = ChatMessageModel(
@@ -149,7 +149,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         createdAt: DateTime.now(),
       );
       
-      await ref.read(databaseServiceProvider).createChatMessage(message);
+      await ref.read(localStorageServiceProvider).createChatMessage(message);
       
       // Clear message input
       _messageController.clear();
@@ -318,7 +318,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         itemCount: _messages.length,
         itemBuilder: (context, index) {
           final message = _messages[index];
-          final userId = ref.read(authServiceProvider).currentUserId;
+          final userId = ref.read(localAuthServiceProvider).currentUserId;
           final isCurrentUser = message.senderId == userId;
           
           return MessageBubble(

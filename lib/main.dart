@@ -1,22 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'app.dart';
-import 'firebase_options.dart';
+import 'services/local_storage_service.dart';
+import 'services/local_auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  
   // Initialize Hive for local storage
   await Hive.initFlutter();
+  
+  // Initialize local storage service
+  final localStorageService = LocalStorageService();
+  await localStorageService.initialize();
+  
+  // Initialize local auth service
+  final localAuthService = LocalAuthService(
+    localStorageService: localStorageService,
+  );
   
   // Set preferred orientations
   await SystemChrome.setPreferredOrientations([
@@ -35,8 +39,12 @@ void main() async {
   );
   
   runApp(
-    const ProviderScope(
-      child: FaithMissionApp(),
+    ProviderScope(
+      overrides: [
+        localStorageServiceProvider.overrideWithValue(localStorageService),
+        localAuthServiceProvider.overrideWithValue(localAuthService),
+      ],
+      child: const FaithMissionApp(),
     ),
   );
 }

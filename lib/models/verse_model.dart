@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'verse_model.freezed.dart';
@@ -31,7 +31,7 @@ class VerseModel with _$VerseModel {
   factory VerseModel.fromJson(Map<String, dynamic> json) =>
       _$VerseModelFromJson(json);
 
-  factory VerseModel.fromFirestore(DocumentSnapshot doc) {
+  factory VerseModel.
     final data = doc.data() as Map<String, dynamic>;
     return VerseModel.fromJson({...data, 'id': doc.id});
   }
@@ -53,7 +53,7 @@ class DailyVerseModel with _$DailyVerseModel {
   factory DailyVerseModel.fromJson(Map<String, dynamic> json) =>
       _$DailyVerseModelFromJson(json);
 
-  factory DailyVerseModel.fromFirestore(DocumentSnapshot doc) {
+  factory DailyVerseModel.
     final data = doc.data() as Map<String, dynamic>;
     return DailyVerseModel.fromJson({...data, 'id': doc.id});
   }

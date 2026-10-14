@@ -8,27 +8,27 @@ import '../models/user_model.dart';
 import 'database_service.dart';
 
 // Auth Service Provider
-final authServiceProvider = Provider<AuthService>((ref) {
+final localAuthServiceProvider = Provider<AuthService>((ref) {
   return AuthService(
     firebaseAuth: FirebaseAuth.instance,
     firestore: FirebaseFirestore.instance,
-    databaseService: ref.read(databaseServiceProvider),
+    databaseService: ref.read(localStorageServiceProvider),
   );
 });
 
 // Auth State Provider
 final authStateProvider = StreamProvider<User?>((ref) {
-  return ref.read(authServiceProvider).authStateChanges;
+  return ref.read(localAuthServiceProvider).authStateChanges;
 });
 
 // Current User Provider
-final currentUserProvider = StreamProvider<UserModel?>((ref) async* {
+final localCurrentUserProvider = StreamProvider<UserModel?>((ref) async* {
   final authState = ref.watch(authStateProvider);
   
   await for (final user in authState) {
     if (user != null) {
       final userModel = await ref
-          .read(authServiceProvider)
+          .read(localAuthServiceProvider)
           .getUser(user.uid);
       yield userModel;
     } else {
@@ -89,7 +89,7 @@ class AuthService {
       // Update last login
       await _databaseService.updateUser(
         user.uid,
-        {'lastLoginAt': FieldValue.serverTimestamp()},
+        {'lastLoginAt': DateTime.now()},
       );
       
       return userModel;
@@ -179,7 +179,7 @@ class AuthService {
           {
             'photoUrl': user.photoURL ?? userModel.photoUrl,
             'displayName': user.displayName ?? userModel.displayName,
-            'updatedAt': FieldValue.serverTimestamp(),
+            'updatedAt': DateTime.now(),
           },
         );
       }
@@ -264,7 +264,7 @@ class AuthService {
         await user.updatePassword(newPassword);
         await _databaseService.updateUser(
           user.uid,
-          {'updatedAt': FieldValue.serverTimestamp()},
+          {'updatedAt': DateTime.now()},
         );
       }
     } catch (e) {
@@ -291,7 +291,7 @@ class AuthService {
           user.uid,
           {
             'email': newEmail,
-            'updatedAt': FieldValue.serverTimestamp(),
+            'updatedAt': DateTime.now(),
           },
         );
       }
@@ -309,7 +309,7 @@ class AuthService {
     try {
       final user = _firebaseAuth.currentUser;
       if (user != null) {
-        final updates = <String, dynamic>{'updatedAt': FieldValue.serverTimestamp()};
+        final updates = <String, dynamic>{'updatedAt': DateTime.now()};
         
         if (displayName != null) {
           updates['displayName'] = displayName;

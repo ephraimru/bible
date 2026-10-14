@@ -38,7 +38,7 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
 
   Future<void> _loadComments() async {
     try {
-      final comments = await ref.read(databaseServiceProvider).getBlogComments(
+      final comments = await ref.read(localStorageServiceProvider).getBlogComments(
             widget.postId,
           );
       
@@ -57,7 +57,7 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
     final text = _commentController.text.trim();
     if (text.isEmpty) return;
     
-    final userId = ref.read(authServiceProvider).currentUserId;
+    final userId = ref.read(localAuthServiceProvider).currentUserId;
     if (userId == null) return;
     
     setState(() {
@@ -83,7 +83,7 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
       }
       
       // Get user info
-      final user = ref.read(currentUserProvider).value;
+      final user = ref.read(localCurrentUserProvider).value;
       
       // Create comment
       final comment = BlogCommentModel(
@@ -97,7 +97,7 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
         updatedAt: DateTime.now(),
       );
       
-      await ref.read(databaseServiceProvider).createBlogComment(comment);
+      await ref.read(localStorageServiceProvider).createBlogComment(comment);
       
       // Clear input
       _commentController.clear();
@@ -204,7 +204,7 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
   }
 
   Widget _buildCommentItem(BuildContext context, BlogCommentModel comment) {
-    final userId = ref.read(authServiceProvider).currentUserId;
+    final userId = ref.read(localAuthServiceProvider).currentUserId;
     final isCurrentUser = comment.authorId == userId;
     
     return Card(
@@ -326,7 +326,7 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
   }
 
   Widget _buildCommentInput(BuildContext context) {
-    final userId = ref.read(authServiceProvider).currentUserId;
+    final userId = ref.read(localAuthServiceProvider).currentUserId;
     
     if (userId == null) {
       return Container(

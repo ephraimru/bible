@@ -32,7 +32,7 @@ class _BlogScreenState extends ConsumerState<BlogScreen> {
 
   Future<void> _loadPosts() async {
     try {
-      final posts = await ref.read(databaseServiceProvider).getBlogPosts(
+      final posts = await ref.read(localStorageServiceProvider).getBlogPosts(
             limit: 50,
             featuredOnly: false,
           );
@@ -74,7 +74,7 @@ class _BlogScreenState extends ConsumerState<BlogScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(currentUserProvider).value;
+    final user = ref.watch(localCurrentUserProvider).value;
     
     return Scaffold(
       appBar: AppBar(

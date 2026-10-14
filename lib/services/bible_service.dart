@@ -6,9 +6,9 @@ import '../models/verse_model.dart';
 import 'database_service.dart';
 
 // Bible Service Provider
-final bibleServiceProvider = Provider<BibleService>((ref) {
+final mockBibleServiceProvider = Provider<BibleService>((ref) {
   return BibleService(
-    databaseService: ref.read(databaseServiceProvider),
+    databaseService: ref.read(localStorageServiceProvider),
   );
 });
 
@@ -397,8 +397,8 @@ class BibleService {
       'verseId': verseId,
       'note': note,
       'title': title,
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
+      'createdAt': DateTime.now(),
+      'updatedAt': DateTime.now(),
     });
   }
 

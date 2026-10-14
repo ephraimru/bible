@@ -4,22 +4,22 @@ import 'package:intl/intl.dart';
 import '../models/user_model.dart';
 import '../models/faith_journey_model.dart';
 import '../models/verse_model.dart';
-import 'database_service.dart';
-import 'bible_service.dart';
+import 'local_storage_service.dart';
+import 'mock_bible_service.dart';
 import 'notification_service.dart';
 
 // Faith Journey Service Provider
 final faithJourneyServiceProvider = Provider<FaithJourneyService>((ref) {
   return FaithJourneyService(
-    databaseService: ref.read(databaseServiceProvider),
-    bibleService: ref.read(bibleServiceProvider),
+    localStorageService: ref.read(localStorageServiceProvider),
+    bibleService: ref.read(mockBibleServiceProvider),
     notificationService: ref.read(notificationServiceProvider),
   );
 });
 
 // Faith Journey Stream Provider
 final faithJourneyStreamProvider = StreamProvider<FaithJourney?>((ref) {
-  final userId = ref.read(authServiceProvider).currentUserId;
+  final userId = ref.read(localAuthServiceProvider).currentUserId;
   if (userId == null) return Stream.value(null);
   
   return ref.read(faithJourneyServiceProvider).streamFaithJourney(userId);
@@ -34,15 +34,15 @@ final faithJourneyStatsProvider = Provider<FaithJourneyStats?>((ref) {
 });
 
 class FaithJourneyService {
-  final DatabaseService _databaseService;
-  final BibleService _bibleService;
+  final LocalStorageService _localStorageService;
+  final MockBibleService _bibleService;
   final NotificationService _notificationService;
 
   FaithJourneyService({
-    required DatabaseService databaseService,
-    required BibleService bibleService,
+    required LocalStorageService localStorageService,
+    required MockBibleService bibleService,
     required NotificationService notificationService,
-  })  : _databaseService = databaseService,
+  })  : _localStorageService = localStorageService,
         _bibleService = bibleService,
         _notificationService = notificationService;
 
@@ -50,12 +50,12 @@ class FaithJourneyService {
 
   /// Get faith journey for a user
   Future<FaithJourney?> getFaithJourney(String userId) async {
-    return _databaseService.getFaithJourney(userId);
+    return _localStorageService.getFaithJourney(userId);
   }
 
   /// Stream faith journey for a user
   Stream<FaithJourney?> streamFaithJourney(String userId) {
-    return _databaseService.streamFaithJourney(userId);
+    return _localStorageService.streamFaithJourney(userId);
   }
 
   /// Create faith journey for a new user
@@ -69,7 +69,7 @@ class FaithJourneyService {
       lastUpdatedAt: DateTime.now(),
     );
     
-    await _databaseService.createFaithJourney(journey);
+    await _localStorageService.createFaithJourney(journey);
   }
 
   /// Get initial progress list for a new user
@@ -116,29 +116,150 @@ class FaithJourneyService {
     required int verse,
     required int versesCount,
   }) async {
-    // Update reading stats
-    await _databaseService.updateReadingStats(
-      userId: userId,
-      book: book,
-      chapter: chapter,
-      verse: verse,
-      versesCount: versesCount,
-    );
+    // Update reading stats in local storage
+    final user = await _localStorageService.getUser(userId);
+    if (user != null) {
+      final readingStats = user.readingStats;
+      final bookProgress = readingStats.bookProgress ?? {};
+      bookProgress[book] = (bookProgress[book] ?? 0) + versesCount;
+      
+      final lastRead = readingStats.lastRead ?? {};
+      lastRead[book] = DateTime.now();
+      
+      await _localStorageService.updateUser(userId, {
+        'readingStats': {
+          ...readingStats.toJson(),
+          'bookProgress': bookProgress,
+          'lastRead': lastRead,
+          'totalVersesRead': (readingStats.totalVersesRead ?? 0) + versesCount,
+          'totalChaptersRead': (readingStats.totalChaptersRead ?? 0) + 1,
+        },
+        'lastReadingDate': DateTime.now(),
+        'consecutiveReadingDays': user.consecutiveReadingDays + 1,
+        'totalReadingDays': user.totalReadingDays + 1,
+      });
+    }
+    
+    // Update faith journey
+    final journey = await getFaithJourney(userId);
+    if (journey != null) {
+      final today = DateTime.now();
+      final lastReadingDate = journey.lastReadingDate;
+      
+      int consecutiveDays = journey.consecutiveDays;
+      int longestStreak = journey.longestStreak;
+      
+      if (lastReadingDate != null) {
+        final lastDate = DateTime(
+          lastReadingDate.year,
+          lastReadingDate.month,
+          lastReadingDate.day,
+        );
+        final todayDate = DateTime(today.year, today.month, today.day);
+        final diff = todayDate.difference(lastDate).inDays;
+        
+        if (diff == 1) {
+          consecutiveDays = journey.consecutiveDays + 1;
+          if (consecutiveDays > longestStreak) {
+            longestStreak = consecutiveDays;
+          }
+        } else if (diff > 1) {
+          consecutiveDays = 1;
+        }
+      } else {
+        consecutiveDays = 1;
+      }
+      
+      await _localStorageService.updateFaithJourney(userId, {
+        'versesRead': journey.versesRead + versesCount,
+        'chaptersRead': journey.chaptersRead + 1,
+        'consecutiveDays': consecutiveDays,
+        'longestStreak': longestStreak,
+        'lastReadingDate': today,
+        'totalDaysRead': journey.totalDaysRead + 1,
+        'lastUpdatedAt': DateTime.now(),
+      });
+    } else {
+      // Create faith journey if it doesn't exist
+      await createFaithJourney(userId);
+    }
     
     // Check role progression
-    await _databaseService.checkRoleProgression(userId);
+    await _checkRoleProgression(userId);
     
     // Check and send notifications
     await _checkAndSendNotifications(userId);
   }
 
+  /// Check role progression
+  Future<void> _checkRoleProgression(String userId) async {
+    final journey = await getFaithJourney(userId);
+    final user = await _localStorageService.getUser(userId);
+    
+    if (journey == null || user == null) return;
+    
+    final currentRole = journey.currentRole;
+    UserRole? nextRole;
+    bool shouldPromote = false;
+    
+    switch (currentRole) {
+      case UserRole.believer:
+        if (journey.consecutiveDays >= 7) {
+          nextRole = UserRole.preacher;
+          shouldPromote = true;
+        }
+        break;
+      case UserRole.preacher:
+        if (journey.consecutiveDays >= 30) {
+          nextRole = UserRole.shepherd;
+          shouldPromote = true;
+        }
+        break;
+      case UserRole.shepherd:
+        if (journey.consecutiveDays >= 365) {
+          nextRole = UserRole.bishop;
+          shouldPromote = true;
+        }
+        break;
+      case UserRole.bishop:
+        break;
+    }
+    
+    if (shouldPromote && nextRole != null) {
+      // Update user role
+      await _localStorageService.updateUser(userId, {
+        'role': nextRole.name,
+        'updatedAt': DateTime.now(),
+      });
+      
+      // Update faith journey
+      await _localStorageService.updateFaithJourney(userId, {
+        'currentRole': nextRole.name,
+        'hasReached${nextRole.name.capitalize()}': true,
+        'updatedAt': DateTime.now(),
+      });
+      
+      // Send notification
+      await _notificationService.sendNotification(
+        userId: userId,
+        title: 'Congratulations!',
+        body: 'You have been promoted to ${nextRole.displayName}!',
+        data: {
+          'type': 'role_promotion',
+          'newRole': nextRole.name,
+        },
+      );
+    }
+  }
+
   /// Check and send notifications based on progress
   Future<void> _checkAndSendNotifications(String userId) async {
     final journey = await getFaithJourney(userId);
-    if (journey == null) return;
+    final user = await _localStorageService.getUser(userId);
     
-    final user = await _databaseService.getUser(userId);
-    if (user == null) return;
+    if (journey == null || user == null) return;
+    
+    final currentRole = journey.currentRole;
     
     // Check for milestone achievements
     final milestones = await _checkMilestones(userId, journey);
@@ -150,14 +271,13 @@ class FaithJourneyService {
         body: milestone.title,
         data: {
           'type': 'milestone',
-          'milestoneId': milestone.id,
           'milestoneType': milestone.type.name,
         },
       );
     }
     
     // Check for role promotion notifications
-    if (journey.hasReachedBeliever && !journey.hasReachedPreacher) {
+    if (currentRole == UserRole.believer && !journey.hasReachedPreacher) {
       final daysLeft = 30 - journey.consecutiveDays;
       if (daysLeft <= 7 && daysLeft > 0) {
         await _notificationService.sendNotification(
@@ -169,7 +289,7 @@ class FaithJourneyService {
       }
     }
     
-    if (journey.hasReachedPreacher && !journey.hasReachedShepherd) {
+    if (currentRole == UserRole.preacher && !journey.hasReachedShepherd) {
       final daysLeft = 365 - journey.consecutiveDays;
       if (daysLeft <= 30 && daysLeft > 0) {
         await _notificationService.sendNotification(
@@ -205,8 +325,11 @@ class FaithJourneyService {
     final milestones = <FaithMilestone>[];
     final now = DateTime.now();
     
+    // Check if milestones are already achieved
+    final achievedMilestoneTypes = journey.milestones.map((m) => m.type).toSet();
+    
     // Check for first reading
-    if (journey.versesRead >= 1 && !journey.hasReachedBeliever) {
+    if (journey.versesRead >= 1 && !achievedMilestoneTypes.contains(FaithMilestoneType.firstReading)) {
       milestones.add(
         FaithMilestone(
           id: '',
@@ -222,7 +345,7 @@ class FaithJourneyService {
     }
     
     // Check for 7-day streak
-    if (journey.consecutiveDays >= 7 && !journey.hasReachedBeliever) {
+    if (journey.consecutiveDays >= 7 && !journey.hasReachedBeliever && !achievedMilestoneTypes.contains(FaithMilestoneType.sevenDayStreak)) {
       milestones.add(
         FaithMilestone(
           id: '',
@@ -238,7 +361,7 @@ class FaithJourneyService {
     }
     
     // Check for 30-day streak
-    if (journey.consecutiveDays >= 30 && !journey.hasReachedPreacher) {
+    if (journey.consecutiveDays >= 30 && !journey.hasReachedPreacher && !achievedMilestoneTypes.contains(FaithMilestoneType.thirtyDayStreak)) {
       milestones.add(
         FaithMilestone(
           id: '',
@@ -254,7 +377,7 @@ class FaithJourneyService {
     }
     
     // Check for 1-year streak
-    if (journey.consecutiveDays >= 365 && !journey.hasReachedShepherd) {
+    if (journey.consecutiveDays >= 365 && !journey.hasReachedShepherd && !achievedMilestoneTypes.contains(FaithMilestoneType.oneYearStreak)) {
       milestones.add(
         FaithMilestone(
           id: '',
@@ -270,40 +393,28 @@ class FaithJourneyService {
     }
     
     // Check for first saved verse
-    final user = await _databaseService.getUser(userId);
-    if (user != null && user.savedVersesCount >= 1) {
-      final hasFirstSavedMilestone = journey.milestones
-          .any((m) => m.type == FaithMilestoneType.firstSavedVerse);
-      
-      if (!hasFirstSavedMilestone) {
-        milestones.add(
-          FaithMilestone(
-            id: '',
-            userId: userId,
-            type: FaithMilestoneType.firstSavedVerse,
-            title: 'First Saved Verse',
-            description: 'You have saved your first Bible verse!',
-            achievedAt: now,
-            isAchieved: true,
-            createdAt: now,
-          ),
-        );
-      }
+    final userModel = await _localStorageService.getUser(userId);
+    if (userModel != null && userModel.savedVersesCount >= 1 && !achievedMilestoneTypes.contains(FaithMilestoneType.firstSavedVerse)) {
+      milestones.add(
+        FaithMilestone(
+          id: '',
+          userId: userId,
+          type: FaithMilestoneType.firstSavedVerse,
+          title: 'First Saved Verse',
+          description: 'You have saved your first Bible verse!',
+          achievedAt: now,
+          isAchieved: true,
+          createdAt: now,
+        ),
+      );
     }
     
-    // Save milestones
-    for (final milestone in milestones) {
-      await _databaseService._firestore
-          .collection('users/$userId/faith_milestones')
-          .add(milestone.toJson());
-      
-      // Also add to journey milestones
-      await _databaseService._firestore
-          .collection('faith_journeys')
-          .doc(userId)
-          .update({
-            'milestones': FieldValue.arrayUnion([milestone.toJson()]),
-          });
+    // Save milestones to faith journey
+    if (milestones.isNotEmpty) {
+      final allMilestones = [...journey.milestones, ...milestones];
+      await _localStorageService.updateFaithJourney(userId, {
+        'milestones': allMilestones.map((m) => m.toJson()).toList(),
+      });
     }
     
     return milestones;
@@ -448,7 +559,7 @@ class FaithJourneyService {
 
   /// Get reading habit for user
   Future<ReadingHabit?> getReadingHabit(String userId) async {
-    return _databaseService.getReadingHabit(userId);
+    return _localStorageService.getReadingHabit(userId);
   }
 
   /// Update reading habit
@@ -459,7 +570,7 @@ class FaithJourneyService {
     String? reminderTime,
     bool? remindOnOffWorkHours,
   }) async {
-    final updates = <String, dynamic>{'updatedAt': FieldValue.serverTimestamp()};
+    final updates = <String, dynamic>{'updatedAt': DateTime.now()};
     
     if (preferredHours != null) {
       updates['preferredHours'] = preferredHours;
@@ -477,12 +588,44 @@ class FaithJourneyService {
       updates['remindOnOffWorkHours'] = remindOnOffWorkHours;
     }
     
-    await _databaseService.updateReadingHabit(userId, updates);
+    await _localStorageService.updateReadingHabit(userId, updates);
   }
 
   /// Record reading session
   Future<void> recordReadingSession(ReadingSession session) async {
-    await _databaseService.recordReadingSession(session);
+    final habit = await getReadingHabit(session.userId);
+    
+    if (habit != null) {
+      final recentSessions = [...habit.recentSessions, session];
+      if (recentSessions.length > 10) {
+        recentSessions.removeAt(0);
+      }
+      
+      await _localStorageService.updateReadingHabit(session.userId, {
+        'recentSessions': recentSessions.map((s) => s.toJson()).toList(),
+        'updatedAt': DateTime.now(),
+      });
+    } else {
+      // Create reading habit if it doesn't exist
+      final newHabit = ReadingHabit(
+        userId: session.userId,
+        preferredHours: [session.startedAt.hour],
+        preferredDays: [session.startedAt.weekday - 1],
+        notificationsEnabled: true,
+        recentSessions: [session],
+        averageReadsPerDay: 1.0,
+        averageDurationMinutes: session.endedAt != null
+            ? session.endedAt!.difference(session.startedAt).inMinutes
+            : 10,
+        updatedAt: DateTime.now(),
+      );
+      
+      // For now, store in user preferences
+      await _localStorageService.updateUser(session.userId, {
+        'readingHours': [session.startedAt.hour],
+        'readingDays': [session.startedAt.weekday - 1],
+      });
+    }
   }
 
   /// Get preferred reading times
@@ -534,7 +677,7 @@ class FaithJourneyService {
 
   /// Check if user can become a bishop
   Future<bool> canBecomeBishop(String userId) async {
-    final user = await _databaseService.getUser(userId);
+    final user = await _localStorageService.getUser(userId);
     if (user == null) return false;
     
     return user.followersCount >= 1000 || user.hasPaidToSkipLadder;
@@ -542,23 +685,23 @@ class FaithJourneyService {
 
   /// Promote user to bishop
   Future<void> promoteToBishop(String userId) async {
-    final user = await _databaseService.getUser(userId);
+    final user = await _localStorageService.getUser(userId);
     if (user == null) return;
     
     if (user.followersCount >= 1000) {
-      await _databaseService.updateUser(userId, {
+      await _localStorageService.updateUser(userId, {
         'role': UserRole.bishop.name,
         'canPostOnBlog': true,
-        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedAt': DateTime.now(),
       });
       
       final journey = await getFaithJourney(userId);
       if (journey != null) {
-        await _databaseService.updateFaithJourney(userId, {
+        await _localStorageService.updateFaithJourney(userId, {
           'currentRole': UserRole.bishop.name,
           'hasReachedBishop': true,
           'canPostOnBlog': true,
-          'updatedAt': FieldValue.serverTimestamp(),
+          'updatedAt': DateTime.now(),
         });
       }
     }
@@ -566,20 +709,23 @@ class FaithJourneyService {
 
   /// Set user's chosen title
   Future<void> setChosenTitle(String userId, String title) async {
-    await _databaseService.updateUser(userId, {
+    await _localStorageService.updateUser(userId, {
       'chosenTitle': title,
-      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedAt': DateTime.now(),
     });
     
-    await _databaseService.updateFaithJourney(userId, {
-      'chosenTitle': title,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    final journey = await getFaithJourney(userId);
+    if (journey != null) {
+      await _localStorageService.updateFaithJourney(userId, {
+        'chosenTitle': title,
+        'updatedAt': DateTime.now(),
+      });
+    }
   }
 
   /// Get available titles for user
   Future<List<String>> getAvailableTitles(String userId) async {
-    final user = await _databaseService.getUser(userId);
+    final user = await _localStorageService.getUser(userId);
     if (user == null) return [];
     
     final currentRole = user.role;
@@ -694,5 +840,11 @@ class FaithJourneyService {
       case FaithMilestoneType.custom:
         return 'You have achieved a custom milestone!';
     }
+  }
+}
+
+extension on String {
+  String capitalize() {
+    return '${this[0].toUpperCase()}${substring(1).toLowerCase()}';
   }
 }

@@ -31,7 +31,7 @@ class _BookScreenState extends ConsumerState<BookScreen> {
 
   Future<void> _loadData() async {
     try {
-      final books = await ref.read(bibleServiceProvider).getBibleBooks();
+      final books = await ref.read(mockBibleServiceProvider).getBibleBooks();
       final currentBook = books.firstWhere(
         (book) => book.name.toLowerCase() == widget.book.toLowerCase() ||
             book.abbreviation.toLowerCase() == widget.book.toLowerCase(),
@@ -54,7 +54,7 @@ class _BookScreenState extends ConsumerState<BookScreen> {
 
   Future<void> _loadChapter(BibleBook book, int chapter) async {
     try {
-      final verses = await ref.read(bibleServiceProvider).getVersesByChapter(
+      final verses = await ref.read(mockBibleServiceProvider).getVersesByChapter(
             book.name,
             chapter,
           );
