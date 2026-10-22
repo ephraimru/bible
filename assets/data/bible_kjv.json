@@ -1,0 +1,518 @@
+{
+  "version": "KJV",
+  "books": [
+    {
+      "name": "Genesis",
+      "abbreviation": "Gen",
+      "chapters": 50,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Exodus",
+      "abbreviation": "Exod",
+      "chapters": 40,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Leviticus",
+      "abbreviation": "Lev",
+      "chapters": 27,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Numbers",
+      "abbreviation": "Num",
+      "chapters": 36,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Deuteronomy",
+      "abbreviation": "Deut",
+      "chapters": 34,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Joshua",
+      "abbreviation": "Josh",
+      "chapters": 24,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Judges",
+      "abbreviation": "Judg",
+      "chapters": 21,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Ruth",
+      "abbreviation": "Ruth",
+      "chapters": 4,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "1 Samuel",
+      "abbreviation": "1 Sam",
+      "chapters": 31,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "2 Samuel",
+      "abbreviation": "2 Sam",
+      "chapters": 24,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "1 Kings",
+      "abbreviation": "1 Kings",
+      "chapters": 22,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "2 Kings",
+      "abbreviation": "2 Kings",
+      "chapters": 25,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "1 Chronicles",
+      "abbreviation": "1 Chr",
+      "chapters": 29,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "2 Chronicles",
+      "abbreviation": "2 Chr",
+      "chapters": 36,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Ezra",
+      "abbreviation": "Ezra",
+      "chapters": 10,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Nehemiah",
+      "abbreviation": "Neh",
+      "chapters": 13,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Esther",
+      "abbreviation": "Esth",
+      "chapters": 10,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Job",
+      "abbreviation": "Job",
+      "chapters": 42,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Psalms",
+      "abbreviation": "Ps",
+      "chapters": 150,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Proverbs",
+      "abbreviation": "Prov",
+      "chapters": 31,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Ecclesiastes",
+      "abbreviation": "Eccl",
+      "chapters": 12,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Song of Solomon",
+      "abbreviation": "Song",
+      "chapters": 8,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Isaiah",
+      "abbreviation": "Isa",
+      "chapters": 66,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Jeremiah",
+      "abbreviation": "Jer",
+      "chapters": 52,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Lamentations",
+      "abbreviation": "Lam",
+      "chapters": 5,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Ezekiel",
+      "abbreviation": "Ezek",
+      "chapters": 48,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Daniel",
+      "abbreviation": "Dan",
+      "chapters": 12,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Hosea",
+      "abbreviation": "Hos",
+      "chapters": 14,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Joel",
+      "abbreviation": "Joel",
+      "chapters": 3,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Amos",
+      "abbreviation": "Amos",
+      "chapters": 9,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Obadiah",
+      "abbreviation": "Obad",
+      "chapters": 1,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Jonah",
+      "abbreviation": "Jonah",
+      "chapters": 4,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Micah",
+      "abbreviation": "Mic",
+      "chapters": 7,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Nahum",
+      "abbreviation": "Nah",
+      "chapters": 3,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Habakkuk",
+      "abbreviation": "Hab",
+      "chapters": 3,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Zephaniah",
+      "abbreviation": "Zeph",
+      "chapters": 3,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Haggai",
+      "abbreviation": "Hag",
+      "chapters": 2,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Zechariah",
+      "abbreviation": "Zech",
+      "chapters": 14,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Malachi",
+      "abbreviation": "Mal",
+      "chapters": 4,
+      "testament": "Old Testament"
+    },
+    {
+      "name": "Matthew",
+      "abbreviation": "Matt",
+      "chapters": 28,
+      "testament": "New Testament"
+    },
+    {
+      "name": "Mark",
+      "abbreviation": "Mark",
+      "chapters": 16,
+      "testament": "New Testament"
+    },
+    {
+      "name": "Luke",
+      "abbreviation": "Luke",
+      "chapters": 24,
+      "testament": "New Testament"
+    },
+    {
+      "name": "John",
+      "abbreviation": "John",
+      "chapters": 21,
+      "testament": "New Testament"
+    },
+    {
+      "name": "Acts",
+      "abbreviation": "Acts",
+      "chapters": 28,
+      "testament": "New Testament"
+    },
+    {
+      "name": "Romans",
+      "abbreviation": "Rom",
+      "chapters": 16,
+      "testament": "New Testament"
+    },
+    {
+      "name": "1 Corinthians",
+      "abbreviation": "1 Cor",
+      "chapters": 16,
+      "testament": "New Testament"
+    },
+    {
+      "name": "2 Corinthians",
+      "abbreviation": "2 Cor",
+      "chapters": 13,
+      "testament": "New Testament"
+    },
+    {
+      "name": "Galatians",
+      "abbreviation": "Gal",
+      "chapters": 6,
+      "testament": "New Testament"
+    },
+    {
+      "name": "Ephesians",
+      "abbreviation": "Eph",
+      "chapters": 6,
+      "testament": "New Testament"
+    },
+    {
+      "name": "Philippians",
+      "abbreviation": "Phil",
+      "chapters": 4,
+      "testament": "New Testament"
+    },
+    {
+      "name": "Colossians",
+      "abbreviation": "Col",
+      "chapters": 4,
+      "testament": "New Testament"
+    },
+    {
+      "name": "1 Thessalonians",
+      "abbreviation": "1 Thess",
+      "chapters": 5,
+      "testament": "New Testament"
+    },
+    {
+      "name": "2 Thessalonians",
+      "abbreviation": "2 Thess",
+      "chapters": 3,
+      "testament": "New Testament"
+    },
+    {
+      "name": "1 Timothy",
+      "abbreviation": "1 Tim",
+      "chapters": 6,
+      "testament": "New Testament"
+    },
+    {
+      "name": "2 Timothy",
+      "abbreviation": "2 Tim",
+      "chapters": 4,
+      "testament": "New Testament"
+    },
+    {
+      "name": "Titus",
+      "abbreviation": "Titus",
+      "chapters": 3,
+      "testament": "New Testament"
+    },
+    {
+      "name": "Philemon",
+      "abbreviation": "Philem",
+      "chapters": 1,
+      "testament": "New Testament"
+    },
+    {
+      "name": "Hebrews",
+      "abbreviation": "Heb",
+      "chapters": 13,
+      "testament": "New Testament"
+    },
+    {
+      "name": "James",
+      "abbreviation": "Jas",
+      "chapters": 5,
+      "testament": "New Testament"
+    },
+    {
+      "name": "1 Peter",
+      "abbreviation": "1 Pet",
+      "chapters": 5,
+      "testament": "New Testament"
+    },
+    {
+      "name": "2 Peter",
+      "abbreviation": "2 Pet",
+      "chapters": 3,
+      "testament": "New Testament"
+    },
+    {
+      "name": "1 John",
+      "abbreviation": "1 John",
+      "chapters": 5,
+      "testament": "New Testament"
+    },
+    {
+      "name": "2 John",
+      "abbreviation": "2 John",
+      "chapters": 1,
+      "testament": "New Testament"
+    },
+    {
+      "name": "3 John",
+      "abbreviation": "3 John",
+      "chapters": 1,
+      "testament": "New Testament"
+    },
+    {
+      "name": "Jude",
+      "abbreviation": "Jude",
+      "chapters": 1,
+      "testament": "New Testament"
+    },
+    {
+      "name": "Revelation",
+      "abbreviation": "Rev",
+      "chapters": 22,
+      "testament": "New Testament"
+    }
+  ],
+  "daily_verses": [
+    {
+      "reference": "John 3:16",
+      "text": "For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.",
+      "book": "John",
+      "chapter": 3,
+      "verse": 16,
+      "theme": "Love",
+      "backgroundColor": "0xFF4CAF50"
+    },
+    {
+      "reference": "Psalm 23:1",
+      "text": "The LORD is my shepherd; I shall not want.",
+      "book": "Psalms",
+      "chapter": 23,
+      "verse": 1,
+      "theme": "Trust",
+      "backgroundColor": "0xFF2196F3"
+    },
+    {
+      "reference": "Proverbs 3:5-6",
+      "text": "Trust in the LORD with all thine heart; and lean not unto thine own understanding. In all thy ways acknowledge him, and he shall direct thy paths.",
+      "book": "Proverbs",
+      "chapter": 3,
+      "verse": 5,
+      "theme": "Wisdom",
+      "backgroundColor": "0xFF9C27B0"
+    },
+    {
+      "reference": "Philippians 4:13",
+      "text": "I can do all things through Christ which strengtheneth me.",
+      "book": "Philippians",
+      "chapter": 4,
+      "verse": 13,
+      "theme": "Strength",
+      "backgroundColor": "0xFFFF9800"
+    },
+    {
+      "reference": "Romans 8:28",
+      "text": "And we know that all things work together for good to them that love God, to them who are the called according to his purpose.",
+      "book": "Romans",
+      "chapter": 8,
+      "verse": 28,
+      "theme": "Hope",
+      "backgroundColor": "0xFFE91E63"
+    },
+    {
+      "reference": "Matthew 11:28",
+      "text": "Come unto me, all ye that labour and are heavy laden, and I will give you rest.",
+      "book": "Matthew",
+      "chapter": 11,
+      "verse": 28,
+      "theme": "Rest",
+      "backgroundColor": "0xFF607D8B"
+    },
+    {
+      "reference": "Isaiah 41:10",
+      "text": "Fear thou not; for I am with thee: be not dismayed; for I am thy God: I will strengthen thee; yea, I will help thee; yea, I will uphold thee with the right hand of my righteousness.",
+      "book": "Isaiah",
+      "chapter": 41,
+      "verse": 10,
+      "theme": "Courage",
+      "backgroundColor": "0xFF795548"
+    }
+  ],
+  "popular_verses": [
+    {
+      "reference": "John 3:16",
+      "text": "For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.",
+      "book": "John",
+      "chapter": 3,
+      "verse": 16,
+      "likes": 1500,
+      "saves": 800,
+      "tags": ["love", "salvation", "faith"]
+    },
+    {
+      "reference": "Psalm 23:1-6",
+      "text": "The LORD is my shepherd; I shall not want. He maketh me to lie down in green pastures: he leadeth me beside the still waters. He restoreth my soul: he leadeth me in the paths of righteousness for his name's sake. Yea, though I walk through the valley of the shadow of death, I will fear no evil: for thou art with me; thy rod and thy staff they comfort me. Thou preparest a table before me in the presence of mine enemies: thou anointest my head with oil; my cup runneth over. Surely goodness and mercy shall follow me all the days of my life: and I will dwell in the house of the LORD for ever.",
+      "book": "Psalms",
+      "chapter": 23,
+      "verse": 1,
+      "likes": 1200,
+      "saves": 650,
+      "tags": ["comfort", "trust", "protection"]
+    },
+    {
+      "reference": "Jeremiah 29:11",
+      "text": "For I know the thoughts that I think toward you, saith the LORD, thoughts of peace, and not of evil, to give you an expected end.",
+      "book": "Jeremiah",
+      "chapter": 29,
+      "verse": 11,
+      "likes": 900,
+      "saves": 500,
+      "tags": ["hope", "future", "plans"]
+    },
+    {
+      "reference": "Philippians 4:6-7",
+      "text": "Be careful for nothing; but in every thing by prayer and supplication with thanksgiving let your requests be made known unto God. And the peace of God, which passeth all understanding, shall keep your hearts and minds through Christ Jesus.",
+      "book": "Philippians",
+      "chapter": 4,
+      "verse": 6,
+      "likes": 750,
+      "saves": 400,
+      "tags": ["peace", "prayer", "anxiety"]
+    },
+    {
+      "reference": "Romans 12:2",
+      "text": "And be not conformed to this world: but be ye transformed by the renewing of your mind, that ye may prove what is that good, and acceptable, and perfect, will of God.",
+      "book": "Romans",
+      "chapter": 12,
+      "verse": 2,
+      "likes": 600,
+      "saves": 350,
+      "tags": ["transformation", "mind", "will"]
+    }
+  ]
+}
