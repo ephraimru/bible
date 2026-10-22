@@ -279,10 +279,8 @@ class BibleService {
       }
     } else {
       // Get all verses (limited)
-      final snapshot = await _databaseService.versesCollection
-          .limit(1000)
-          .get();
-      allVerses.addAll(snapshot.docs.map((doc) => doc.data()));
+      final all = await _databaseService.getAllVerses();
+      allVerses.addAll(all.take(1000));
     }
     
     // Filter by chapter
@@ -370,47 +368,69 @@ class BibleService {
 
   // ============ STUDY NOTES ============
 
-  // Get study notes for a verse
+  // Get study notes for a verse (local storage version)
   Future<List<Map<String, dynamic>>> getStudyNotes({
     required String userId,
     required String verseId,
   }) async {
-    // This would fetch user's study notes from Firestore
-    final snapshot = await _databaseService._firestore
-        .collection('users/$userId/study_notes')
-        .where('verseId', isEqualTo: verseId)
-        .get();
+    // For local storage, we use a simple list stored in user preferences
+    final user = await _databaseService.getUser(userId);
+    if (user == null) return [];
     
-    return snapshot.docs.map((doc) => doc.data()).toList();
+    // In local mode, study notes are stored in user's preferences
+    final notes = user.preferences['studyNotes'] as List<dynamic>? ?? [];
+    
+    return notes
+        .where((note) => note['verseId'] == verseId)
+        .map((note) => note as Map<String, dynamic>)
+        .toList();
   }
 
-  // Save study note
+  // Save study note (local storage version)
   Future<void> saveStudyNote({
     required String userId,
     required String verseId,
     required String note,
     String? title,
   }) async {
-    await _databaseService._firestore
-        .collection('users/$userId/study_notes')
-        .add({
+    final user = await _databaseService.getUser(userId);
+    if (user == null) return;
+    
+    final studyNote = {
+      'id': _databaseService._localStorageService.generateId(),
       'verseId': verseId,
       'note': note,
       'title': title,
-      'createdAt': DateTime.now(),
-      'updatedAt': DateTime.now(),
+      'createdAt': DateTime.now().toIso8601String(),
+      'updatedAt': DateTime.now().toIso8601String(),
+    };
+    
+    final notes = List<Map<String, dynamic>>.from(
+      user.preferences['studyNotes'] as List<dynamic>? ?? [],
+    );
+    notes.add(studyNote);
+    
+    await _databaseService.updateUser(userId, {
+      'preferences.studyNotes': notes,
     });
   }
 
-  // Delete study note
+  // Delete study note (local storage version)
   Future<void> deleteStudyNote({
     required String userId,
     required String noteId,
   }) async {
-    await _databaseService._firestore
-        .collection('users/$userId/study_notes')
-        .doc(noteId)
-        .delete();
+    final user = await _databaseService.getUser(userId);
+    if (user == null) return;
+    
+    final notes = List<Map<String, dynamic>>.from(
+      user.preferences['studyNotes'] as List<dynamic>? ?? [],
+    );
+    notes.removeWhere((note) => note['id'] == noteId);
+    
+    await _databaseService.updateUser(userId, {
+      'preferences.studyNotes': notes,
+    });
   }
 
   // ============ BOOKMARKS ============
