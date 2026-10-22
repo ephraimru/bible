@@ -104,10 +104,6 @@ class PremiumFeature with _$PremiumFeature {
   factory PremiumFeature.fromJson(Map<String, dynamic> json) =>
       _$PremiumFeatureFromJson(json);
 
-  factory PremiumFeature.
-    final data = doc.data() as Map<String, dynamic>;
-    return PremiumFeature.fromJson({...data, 'id': doc.id});
-  }
 }
 
 /// Subscription model
@@ -137,10 +133,6 @@ class Subscription with _$Subscription {
   factory Subscription.fromJson(Map<String, dynamic> json) =>
       _$SubscriptionFromJson(json);
 
-  factory Subscription.
-    final data = doc.data() as Map<String, dynamic>;
-    return Subscription.fromJson({...data, 'id': doc.id});
-  }
 }
 
 /// Payment model
@@ -168,10 +160,6 @@ class Payment with _$Payment {
   factory Payment.fromJson(Map<String, dynamic> json) =>
       _$PaymentFromJson(json);
 
-  factory Payment.
-    final data = doc.data() as Map<String, dynamic>;
-    return Payment.fromJson({...data, 'id': doc.id});
-  }
 }
 
 /// Premium content model
@@ -196,10 +184,6 @@ class PremiumContent with _$PremiumContent {
   factory PremiumContent.fromJson(Map<String, dynamic> json) =>
       _$PremiumContentFromJson(json);
 
-  factory PremiumContent.
-    final data = doc.data() as Map<String, dynamic>;
-    return PremiumContent.fromJson({...data, 'id': doc.id});
-  }
 }
 
 /// Price model for different plans

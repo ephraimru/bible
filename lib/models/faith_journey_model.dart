@@ -46,10 +46,6 @@ class FaithMilestone with _$FaithMilestone {
   factory FaithMilestone.fromJson(Map<String, dynamic> json) =>
       _$FaithMilestoneFromJson(json);
 
-  factory FaithMilestone.
-    final data = doc.data() as Map<String, dynamic>;
-    return FaithMilestone.fromJson({...data, 'id': doc.id});
-  }
 }
 
 /// Faith journey progress for each role
@@ -69,6 +65,7 @@ class FaithProgress with _$FaithProgress {
 
   factory FaithProgress.fromJson(Map<String, dynamic> json) =>
       _$FaithProgressFromJson(json);
+
 }
 
 /// Complete faith journey tracking
@@ -107,10 +104,6 @@ class FaithJourney with _$FaithJourney {
   factory FaithJourney.fromJson(Map<String, dynamic> json) =>
       _$FaithJourneyFromJson(json);
 
-  factory FaithJourney.
-    final data = doc.data() as Map<String, dynamic>;
-    return FaithJourney.fromJson({...data, 'id': doc.id});
-  }
 }
 
 /// Reading habit tracking
@@ -133,10 +126,6 @@ class ReadingHabit with _$ReadingHabit {
   factory ReadingHabit.fromJson(Map<String, dynamic> json) =>
       _$ReadingHabitFromJson(json);
 
-  factory ReadingHabit.
-    final data = doc.data() as Map<String, dynamic>;
-    return ReadingHabit.fromJson({...data, 'id': doc.id});
-  }
 }
 
 /// Individual reading session
@@ -159,10 +148,6 @@ class ReadingSession with _$ReadingSession {
   factory ReadingSession.fromJson(Map<String, dynamic> json) =>
       _$ReadingSessionFromJson(json);
 
-  factory ReadingSession.
-    final data = doc.data() as Map<String, dynamic>;
-    return ReadingSession.fromJson({...data, 'id': doc.id});
-  }
 }
 
 /// Faith journey statistics for display
@@ -188,6 +173,7 @@ class FaithJourneyStats with _$FaithJourneyStats {
 
   factory FaithJourneyStats.fromJson(Map<String, dynamic> json) =>
       _$FaithJourneyStatsFromJson(json);
+
 }
 
 /// Title options for users who can choose

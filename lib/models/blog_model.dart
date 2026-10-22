@@ -53,10 +53,6 @@ class BlogPostModel with _$BlogPostModel {
   factory BlogPostModel.fromJson(Map<String, dynamic> json) =>
       _$BlogPostModelFromJson(json);
 
-  factory BlogPostModel.
-    final data = doc.data() as Map<String, dynamic>;
-    return BlogPostModel.fromJson({...data, 'id': doc.id});
-  }
 }
 
 /// Blog comment model
@@ -81,10 +77,6 @@ class BlogCommentModel with _$BlogCommentModel {
   factory BlogCommentModel.fromJson(Map<String, dynamic> json) =>
       _$BlogCommentModelFromJson(json);
 
-  factory BlogCommentModel.
-    final data = doc.data() as Map<String, dynamic>;
-    return BlogCommentModel.fromJson({...data, 'id': doc.id});
-  }
 }
 
 /// Blog category model with metadata
@@ -101,6 +93,7 @@ class BlogCategoryModel with _$BlogCategoryModel {
 
   factory BlogCategoryModel.fromJson(Map<String, dynamic> json) =>
       _$BlogCategoryModelFromJson(json);
+
 }
 
 /// Blog search result
@@ -117,4 +110,5 @@ class BlogSearchResult with _$BlogSearchResult {
 
   factory BlogSearchResult.fromJson(Map<String, dynamic> json) =>
       _$BlogSearchResultFromJson(json);
+
 }

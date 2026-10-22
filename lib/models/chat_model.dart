@@ -74,10 +74,6 @@ class ChatMessageModel with _$ChatMessageModel {
   factory ChatMessageModel.fromJson(Map<String, dynamic> json) =>
       _$ChatMessageModelFromJson(json);
 
-  factory ChatMessageModel.
-    final data = doc.data() as Map<String, dynamic>;
-    return ChatMessageModel.fromJson({...data, 'id': doc.id});
-  }
 }
 
 /// Chat room model
@@ -116,10 +112,6 @@ class ChatRoomModel with _$ChatRoomModel {
   factory ChatRoomModel.fromJson(Map<String, dynamic> json) =>
       _$ChatRoomModelFromJson(json);
 
-  factory ChatRoomModel.
-    final data = doc.data() as Map<String, dynamic>;
-    return ChatRoomModel.fromJson({...data, 'id': doc.id});
-  }
 }
 
 /// User chat presence
@@ -144,10 +136,6 @@ class ChatPresenceModel with _$ChatPresenceModel {
   factory ChatPresenceModel.fromJson(Map<String, dynamic> json) =>
       _$ChatPresenceModelFromJson(json);
 
-  factory ChatPresenceModel.
-    final data = doc.data() as Map<String, dynamic>;
-    return ChatPresenceModel.fromJson({...data, 'id': doc.id});
-  }
 }
 
 /// Moderation report model
@@ -171,10 +159,6 @@ class ModerationReportModel with _$ModerationReportModel {
   factory ModerationReportModel.fromJson(Map<String, dynamic> json) =>
       _$ModerationReportModelFromJson(json);
 
-  factory ModerationReportModel.
-    final data = doc.data() as Map<String, dynamic>;
-    return ModerationReportModel.fromJson({...data, 'id': doc.id});
-  }
 }
 
 /// Chat notification model
@@ -196,8 +180,4 @@ class ChatNotificationModel with _$ChatNotificationModel {
   factory ChatNotificationModel.fromJson(Map<String, dynamic> json) =>
       _$ChatNotificationModelFromJson(json);
 
-  factory ChatNotificationModel.
-    final data = doc.data() as Map<String, dynamic>;
-    return ChatNotificationModel.fromJson({...data, 'id': doc.id});
-  }
 }

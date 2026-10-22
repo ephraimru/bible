@@ -396,7 +396,7 @@ class ModerationService {
         if (now.isAfter(suspensionEndDate)) {
           // Suspension has ended, reactivate user
           await _databaseService.updateUser(userId, {
-            'status': UserStatus.active.name,
+            'status': UserStatus.active,
           });
           return false;
         }
@@ -480,7 +480,7 @@ class ModerationService {
     bool actionTaken = false,
   }) async {
     await _databaseService.updateModerationReport(reportId, {
-      'status': status.name,
+      'status': status,
       'reviewedBy': reviewedBy,
       'reviewedAt': DateTime.now(),
       'actionTaken': actionTaken,
@@ -512,7 +512,7 @@ class ModerationService {
           // For local storage, we just update the message
           // In Firebase mode, we would update the document directly
           await _databaseService.updateChatMessage(room.id, message.id, {
-            'moderationStatus': ModerationStatus.flagged.name,
+            'moderationStatus': ModerationStatus.flagged,
             'toxicityScore': result.toxicityScore,
             'offensiveScore': result.offensiveScore,
             'politicalScore': result.politicalScore,
@@ -537,7 +537,7 @@ class ModerationService {
         } else {
           // Mark as approved
           await _databaseService.updateChatMessage(room.id, message.id, {
-            'moderationStatus': ModerationStatus.approved.name,
+            'moderationStatus': ModerationStatus.approved,
           });
         }
       }

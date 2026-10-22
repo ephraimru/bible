@@ -60,6 +60,11 @@ class LocalStorageService {
     await Hive.openBox(kAppSettingsBox);
   }
 
+  // Generate unique ID
+  String generateId() {
+    return _uuid.v4();
+  }
+
   // Close all boxes
   Future<void> close() async {
     await Hive.close();
@@ -398,6 +403,11 @@ class LocalStorageService {
     }
   }
 
+  // Delete verse
+  Future<void> deleteVerse(String verseId) async {
+    await _versesBox.delete(verseId);
+  }
+
   // ============ DAILY VERSE OPERATIONS ============
 
   Box<DailyVerseModel> get _dailyVersesBox => Hive.box<DailyVerseModel>(kDailyVersesBox);
@@ -478,6 +488,11 @@ class LocalStorageService {
     posts.sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
     
     return posts.take(limit).toList();
+  }
+
+  // Get all blog posts (no filtering)
+  Future<List<BlogPostModel>> getAllBlogPosts() async {
+    return _blogPostsBox.values.toList();
   }
 
   // Get featured blog posts
@@ -584,6 +599,11 @@ class LocalStorageService {
     return rooms.take(limit).toList();
   }
 
+  // Get all chat rooms (no filtering)
+  Future<List<ChatRoomModel>> getAllChatRooms() async {
+    return _chatRoomsBox.values.toList();
+  }
+
   // Get general chat room
   Future<ChatRoomModel?> getGeneralChatRoom() async {
     return _chatRoomsBox.values
@@ -670,6 +690,37 @@ class LocalStorageService {
     }
   }
 
+  // Update chat room
+  Future<void> updateChatRoom(String roomId, Map<String, dynamic> updates) async {
+    final room = _chatRoomsBox.get(roomId);
+    if (room != null) {
+      final updatedRoom = room.copyWith(
+        name: updates['name'] as String? ?? room.name,
+        description: updates['description'] as String? ?? room.description,
+        coverImageUrl: updates['coverImageUrl'] as String? ?? room.coverImageUrl,
+        memberIds: updates['memberIds'] as List<String>? ?? room.memberIds,
+        adminIds: updates['adminIds'] as List<String>? ?? room.adminIds,
+        moderatorIds: updates['moderatorIds'] as List<String>? ?? room.moderatorIds,
+        messageCount: updates['messageCount'] as int? ?? room.messageCount,
+        unreadCount: updates['unreadCount'] as int? ?? room.unreadCount,
+        lastMessageAt: updates['lastMessageAt'] as DateTime? ?? room.lastMessageAt,
+        lastMessageId: updates['lastMessageId'] as String? ?? room.lastMessageId,
+        lastMessageSenderId: updates['lastMessageSenderId'] as String? ?? room.lastMessageSenderId,
+        lastMessageContent: updates['lastMessageContent'] as String? ?? room.lastMessageContent,
+        isPrivate: updates['isPrivate'] as bool? ?? room.isPrivate,
+        isArchived: updates['isArchived'] as bool? ?? room.isArchived,
+        tags: updates['tags'] as List<String>? ?? room.tags,
+        memberJoinDates: updates['memberJoinDates'] as Map<String, DateTime>? ?? room.memberJoinDates,
+      );
+      await _chatRoomsBox.put(roomId, updatedRoom);
+    }
+  }
+
+  // Delete chat room
+  Future<void> deleteChatRoom(String roomId) async {
+    await _chatRoomsBox.delete(roomId);
+  }
+
   // ============ FAITH JOURNEY OPERATIONS ============
 
   Box<FaithJourney> get _faithJourneyBox => Hive.box<FaithJourney>(kFaithJourneysBox);
@@ -698,6 +749,11 @@ class LocalStorageService {
       );
       await _faithJourneyBox.put(userId, updatedJourney);
     }
+  }
+
+  // Delete faith journey
+  Future<void> deleteFaithJourney(String userId) async {
+    await _faithJourneyBox.delete(userId);
   }
 
   // Stream faith journey
@@ -732,6 +788,27 @@ class LocalStorageService {
     }
   }
 
+  // Create reading habit
+  Future<void> createReadingHabit(ReadingHabit habit) async {
+    await _readingHabitBox.put(habit.userId, habit);
+  }
+
+  // Delete reading habit
+  Future<void> deleteReadingHabit(String userId) async {
+    await _readingHabitBox.delete(userId);
+  }
+
+  // Stream reading habit
+  Stream<ReadingHabit?> streamReadingHabit(String userId) {
+    return _readingHabitBox.watch(key: userId).map((event) => event.value);
+  }
+
+  // Record reading session
+  Future<void> recordReadingSession(ReadingSession session) async {
+    final sessionsBox = Hive.box<ReadingSession>('${kReadingHabitsBox}_sessions_${session.userId}');
+    await sessionsBox.put(session.id, session);
+  }
+
   // ============ SUBSCRIPTION OPERATIONS ============
 
   Box<Subscription> get _subscriptionsBox => Hive.box<Subscription>(kSubscriptionsBox);
@@ -761,6 +838,37 @@ class LocalStorageService {
         ..sort((a, b) => b.startDate.compareTo(a.startDate));
   }
 
+  // Get subscription by ID
+  Future<Subscription?> getSubscription(String subscriptionId) async {
+    return _subscriptionsBox.get(subscriptionId);
+  }
+
+  // Update subscription
+  Future<void> updateSubscription(String subscriptionId, Map<String, dynamic> updates) async {
+    final sub = _subscriptionsBox.get(subscriptionId);
+    if (sub != null) {
+      final updatedSub = sub.copyWith(
+        userId: updates['userId'] as String? ?? sub.userId,
+        plan: updates['plan'] as SubscriptionPlan? ?? sub.plan,
+        startDate: updates['startDate'] as DateTime? ?? sub.startDate,
+        endDate: updates['endDate'] as DateTime? ?? sub.endDate,
+        status: updates['status'] as PaymentStatus? ?? sub.status,
+        paymentMethod: updates['paymentMethod'] as PaymentMethod? ?? sub.paymentMethod,
+        amount: updates['amount'] as double? ?? sub.amount,
+        transactionId: updates['transactionId'] as String? ?? sub.transactionId,
+        autoRenew: updates['autoRenew'] as bool? ?? sub.autoRenew,
+        isActive: updates['isActive'] as bool? ?? sub.isActive,
+        isCancelled: updates['isCancelled'] as bool? ?? sub.isCancelled,
+      );
+      await _subscriptionsBox.put(subscriptionId, updatedSub);
+    }
+  }
+
+  // Delete subscription
+  Future<void> deleteSubscription(String subscriptionId) async {
+    await _subscriptionsBox.delete(subscriptionId);
+  }
+
   // ============ PAYMENT OPERATIONS ============
 
   Box<Payment> get _paymentsBox => Hive.box<Payment>(kPaymentsBox);
@@ -771,6 +879,43 @@ class LocalStorageService {
     final paymentWithId = payment.copyWith(id: id);
     await _paymentsBox.put(id, paymentWithId);
     return id;
+  }
+
+  // Get payment by ID
+  Future<Payment?> getPayment(String paymentId) async {
+    return _paymentsBox.get(paymentId);
+  }
+
+  // Get user payments
+  Future<List<Payment>> getUserPayments(String userId) async {
+    return _paymentsBox.values
+        .where((p) => p.userId == userId)
+        .toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  // Update payment
+  Future<void> updatePayment(String paymentId, Map<String, dynamic> updates) async {
+    final payment = _paymentsBox.get(paymentId);
+    if (payment != null) {
+      final updatedPayment = payment.copyWith(
+        userId: updates['userId'] as String? ?? payment.userId,
+        amount: updates['amount'] as double? ?? payment.amount,
+        currency: updates['currency'] as String? ?? payment.currency,
+        method: updates['method'] as PaymentMethod? ?? payment.method,
+        status: updates['status'] as PaymentStatus? ?? payment.status,
+        transactionId: updates['transactionId'] as String? ?? payment.transactionId,
+        reference: updates['reference'] as String? ?? payment.reference,
+        description: updates['description'] as String? ?? payment.description,
+        completedAt: updates['completedAt'] as DateTime? ?? payment.completedAt,
+      );
+      await _paymentsBox.put(paymentId, updatedPayment);
+    }
+  }
+
+  // Delete payment
+  Future<void> deletePayment(String paymentId) async {
+    await _paymentsBox.delete(paymentId);
   }
 
   // ============ APP SETTINGS ============
@@ -785,6 +930,49 @@ class LocalStorageService {
   // Set app setting
   Future<void> setAppSetting(String key, dynamic value) async {
     await _appSettingsBox.put(key, value);
+  }
+
+  // ============ MODERATION OPERATIONS ============
+
+  Box<ModerationReportModel> get _moderationReportsBox => Hive.box<ModerationReportModel>('moderation_reports');
+
+  // Create moderation report
+  Future<void> createModerationReport(ModerationReportModel report) async {
+    await _moderationReportsBox.put(report.id, report);
+  }
+
+  // Get moderation report
+  Future<ModerationReportModel?> getModerationReport(String reportId) async {
+    return _moderationReportsBox.get(reportId);
+  }
+
+  // Get moderation reports
+  Future<List<ModerationReportModel>> getModerationReports({ModerationStatus? status, int limit = 50}) async {
+    var reports = _moderationReportsBox.values.toList();
+    if (status != null) {
+      reports = reports.where((r) => r.status == status).toList();
+    }
+    return reports.take(limit).toList();
+  }
+
+  // Update moderation report
+  Future<void> updateModerationReport(String reportId, Map<String, dynamic> updates) async {
+    final report = _moderationReportsBox.get(reportId);
+    if (report != null) {
+      final updatedReport = report.copyWith(
+        status: updates['status'] as ModerationStatus? ?? report.status,
+        reviewedBy: updates['reviewedBy'] as String? ?? report.reviewedBy,
+        reviewedAt: updates['reviewedAt'] as DateTime? ?? report.reviewedAt,
+        actionTaken: updates['actionTaken'] as bool? ?? report.actionTaken,
+        actionDescription: updates['actionDescription'] as String? ?? report.actionDescription,
+      );
+      await _moderationReportsBox.put(reportId, updatedReport);
+    }
+  }
+
+  // Delete moderation report
+  Future<void> deleteModerationReport(String reportId) async {
+    await _moderationReportsBox.delete(reportId);
   }
 
   // ============ BATCH OPERATIONS ============

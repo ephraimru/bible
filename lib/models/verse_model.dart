@@ -30,11 +30,6 @@ class VerseModel with _$VerseModel {
 
   factory VerseModel.fromJson(Map<String, dynamic> json) =>
       _$VerseModelFromJson(json);
-
-  factory VerseModel.
-    final data = doc.data() as Map<String, dynamic>;
-    return VerseModel.fromJson({...data, 'id': doc.id});
-  }
 }
 
 /// Daily verse model with additional metadata
@@ -52,11 +47,7 @@ class DailyVerseModel with _$DailyVerseModel {
 
   factory DailyVerseModel.fromJson(Map<String, dynamic> json) =>
       _$DailyVerseModelFromJson(json);
-
-  factory DailyVerseModel.
-    final data = doc.data() as Map<String, dynamic>;
-    return DailyVerseModel.fromJson({...data, 'id': doc.id});
-  }
+}
 }
 
 /// Bible book model

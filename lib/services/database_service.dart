@@ -16,42 +16,42 @@ final databaseServiceProvider = Provider<DatabaseService>((ref) {
 });
 
 class DatabaseService {
-  final LocalStorageService _localStorageService;
+  final LocalStorageService localStorageService;
 
   DatabaseService({
     required LocalStorageService localStorageService,
-  }) : _localStorageService = localStorageService;
+  }) : localStorageService = localStorageService;
 
   // ============ USER OPERATIONS ============
 
   // Create user
   Future<void> createUser(UserModel user) async {
-    await _localStorageService.createUser(user);
+    await localStorageService.createUser(user);
   }
 
   // Get user by ID
   Future<UserModel?> getUser(String userId) async {
-    return _localStorageService.getUser(userId);
+    return localStorageService.getUser(userId);
   }
 
   // Update user
   Future<void> updateUser(String userId, Map<String, dynamic> updates) async {
-    await _localStorageService.updateUser(userId, updates);
+    await localStorageService.updateUser(userId, updates);
   }
 
   // Delete user
   Future<void> deleteUser(String userId) async {
-    await _localStorageService.deleteUser(userId);
+    await localStorageService.deleteUser(userId);
   }
 
   // Stream user by ID
   Stream<UserModel?> streamUser(String userId) {
-    return _localStorageService.streamUser(userId);
+    return localStorageService.streamUser(userId);
   }
 
   // Get all users
   Future<List<UserModel>> getAllUsers() async {
-    return _localStorageService.getAllUsers();
+    return localStorageService.getAllUsers();
   }
 
   // Search users
@@ -60,7 +60,7 @@ class DatabaseService {
     int limit = 20,
     String? roleFilter,
   }) async {
-    return _localStorageService.searchUsers(query: query, limit: limit);
+    return localStorageService.searchUsers(query: query, limit: limit);
   }
 
   // Get users by role
@@ -197,27 +197,27 @@ class DatabaseService {
 
   // Create verse
   Future<void> createVerse(VerseModel verse) async {
-    await _localStorageService.createVerse(verse);
+    await localStorageService.createVerse(verse);
   }
 
   // Get verse by ID
   Future<VerseModel?> getVerse(String verseId) async {
-    return _localStorageService.getVerse(verseId);
+    return localStorageService.getVerse(verseId);
   }
 
   // Update verse
   Future<void> updateVerse(String verseId, Map<String, dynamic> updates) async {
-    await _localStorageService.updateVerse(verseId, updates);
+    await localStorageService.updateVerse(verseId, updates);
   }
 
   // Delete verse
   Future<void> deleteVerse(String verseId) async {
-    await _localStorageService.deleteVerse(verseId);
+    await localStorageService.deleteVerse(verseId);
   }
 
   // Get all verses
   Future<List<VerseModel>> getAllVerses() async {
-    return _localStorageService.getAllVerses();
+    return localStorageService.getAllVerses();
   }
 
   // Get verses by book
@@ -272,7 +272,7 @@ class DatabaseService {
 
   // Get daily verse
   Future<DailyVerseModel?> getDailyVerse(DateTime date) async {
-    return _localStorageService.getDailyVerse(date);
+    return localStorageService.getDailyVerse(date);
   }
 
   // Like verse
@@ -339,25 +339,25 @@ class DatabaseService {
 
   // Create blog post
   Future<String> createBlogPost(BlogPostModel post) async {
-    final postId = _localStorageService.generateId();
+    final postId = localStorageService.generateId();
     final postWithId = post.copyWith(id: postId);
-    await _localStorageService.createBlogPost(postWithId);
+    await localStorageService.createBlogPost(postWithId);
     return postId;
   }
 
   // Get blog post by ID
   Future<BlogPostModel?> getBlogPost(String postId) async {
-    return _localStorageService.getBlogPost(postId);
+    return localStorageService.getBlogPost(postId);
   }
 
   // Update blog post
   Future<void> updateBlogPost(String postId, Map<String, dynamic> updates) async {
-    await _localStorageService.updateBlogPost(postId, updates);
+    await localStorageService.updateBlogPost(postId, updates);
   }
 
   // Delete blog post
   Future<void> deleteBlogPost(String postId) async {
-    await _localStorageService.deleteBlogPost(postId);
+    await localStorageService.deleteBlogPost(postId);
   }
 
   // Get all blog posts
@@ -367,7 +367,7 @@ class DatabaseService {
     String? authorId,
     bool featuredOnly = false,
   }) async {
-    final allPosts = await _localStorageService.getAllBlogPosts();
+    final allPosts = await localStorageService.getAllBlogPosts();
     
     var results = allPosts
         .where((post) => post.status == BlogPostStatus.published)
@@ -475,9 +475,9 @@ class DatabaseService {
 
   // Create blog comment
   Future<String> createBlogComment(BlogCommentModel comment) async {
-    final commentId = _localStorageService.generateId();
+    final commentId = localStorageService.generateId();
     final commentWithId = comment.copyWith(id: commentId);
-    await _localStorageService.createBlogComment(commentWithId);
+    await localStorageService.createBlogComment(commentWithId);
     
     // Increment comment count on post
     final post = await getBlogPost(comment.postId);
@@ -492,42 +492,42 @@ class DatabaseService {
 
   // Get blog comments
   Future<List<BlogCommentModel>> getBlogComments(String postId) async {
-    return _localStorageService.getBlogComments(postId);
+    return localStorageService.getBlogComments(postId);
   }
 
   // Like blog comment
   Future<void> likeBlogComment(String postId, String commentId, String userId) async {
-    await _localStorageService.likeBlogComment(postId, commentId, userId);
+    await localStorageService.likeBlogComment(postId, commentId, userId);
   }
 
   // Unlike blog comment
   Future<void> unlikeBlogComment(String postId, String commentId, String userId) async {
-    await _localStorageService.unlikeBlogComment(postId, commentId, userId);
+    await localStorageService.unlikeBlogComment(postId, commentId, userId);
   }
 
   // ============ CHAT OPERATIONS ============
 
   // Create chat room
   Future<String> createChatRoom(ChatRoomModel room) async {
-    final roomId = _localStorageService.generateId();
+    final roomId = localStorageService.generateId();
     final roomWithId = room.copyWith(id: roomId);
-    await _localStorageService.createChatRoom(roomWithId);
+    await localStorageService.createChatRoom(roomWithId);
     return roomId;
   }
 
   // Get chat room by ID
   Future<ChatRoomModel?> getChatRoom(String roomId) async {
-    return _localStorageService.getChatRoom(roomId);
+    return localStorageService.getChatRoom(roomId);
   }
 
   // Update chat room
   Future<void> updateChatRoom(String roomId, Map<String, dynamic> updates) async {
-    await _localStorageService.updateChatRoom(roomId, updates);
+    await localStorageService.updateChatRoom(roomId, updates);
   }
 
   // Delete chat room
   Future<void> deleteChatRoom(String roomId) async {
-    await _localStorageService.deleteChatRoom(roomId);
+    await localStorageService.deleteChatRoom(roomId);
   }
 
   // Get all chat rooms
@@ -535,7 +535,7 @@ class DatabaseService {
     ChatRoomType? type,
     int limit = 50,
   }) async {
-    final allRooms = await _localStorageService.getAllChatRooms();
+    final allRooms = await localStorageService.getAllChatRooms();
     
     var results = allRooms.where((room) => !room.isArchived).toList();
     
@@ -558,9 +558,9 @@ class DatabaseService {
 
   // Create chat message
   Future<String> createChatMessage(ChatMessageModel message) async {
-    final messageId = _localStorageService.generateId();
+    final messageId = localStorageService.generateId();
     final messageWithId = message.copyWith(id: messageId);
-    await _localStorageService.createChatMessage(messageWithId);
+    await localStorageService.createChatMessage(messageWithId);
     
     // Update room's last message info
     final room = await getChatRoom(message.roomId);
@@ -579,17 +579,37 @@ class DatabaseService {
 
   // Get chat messages
   Future<List<ChatMessageModel>> getChatMessages(String roomId, {int limit = 50}) async {
-    return _localStorageService.getChatMessages(roomId, limit: limit);
+    return localStorageService.getChatMessages(roomId, limit: limit);
   }
 
   // Get chat messages stream
   Stream<List<ChatMessageModel>> streamChatMessages(String roomId) {
-    return _localStorageService.streamChatMessages(roomId);
+    return localStorageService.streamChatMessages(roomId);
   }
 
   // Like chat message
   Future<void> likeChatMessage(String roomId, String messageId, String userId) async {
-    await _localStorageService.likeChatMessage(roomId, messageId, userId);
+    await localStorageService.likeChatMessage(roomId, messageId, userId);
+  }
+
+  // Update chat message
+  Future<void> updateChatMessage(String roomId, String messageId, Map<String, dynamic> updates) async {
+    final messagesBox = Hive.box<ChatMessageModel>('${kChatRoomsBox}_messages_${roomId}');
+    final message = messagesBox.get(messageId);
+    if (message != null) {
+      final updatedMessage = message.copyWith(
+        content: updates['content'] as String? ?? message.content,
+        moderationStatus: updates['moderationStatus'] as ModerationStatus? ?? message.moderationStatus,
+        toxicityScore: updates['toxicityScore'] as double? ?? message.toxicityScore,
+        offensiveScore: updates['offensiveScore'] as double? ?? message.offensiveScore,
+        politicalScore: updates['politicalScore'] as double? ?? message.politicalScore,
+        requiresReview: updates['requiresReview'] as bool? ?? message.requiresReview,
+        isDeleted: updates['isDeleted'] as bool? ?? message.isDeleted,
+        deletedBy: updates['deletedBy'] as String? ?? message.deletedBy,
+        deletedAt: updates['deletedAt'] as DateTime? ?? message.deletedAt,
+      );
+      await messagesBox.put(messageId, updatedMessage);
+    }
   }
 
   // Join chat room
@@ -624,32 +644,32 @@ class DatabaseService {
 
   // Create faith journey
   Future<void> createFaithJourney(FaithJourney journey) async {
-    await _localStorageService.createFaithJourney(journey);
+    await localStorageService.createFaithJourney(journey);
   }
 
   // Get faith journey
   Future<FaithJourney?> getFaithJourney(String userId) async {
-    return _localStorageService.getFaithJourney(userId);
+    return localStorageService.getFaithJourney(userId);
   }
 
   // Update faith journey
   Future<void> updateFaithJourney(String userId, Map<String, dynamic> updates) async {
-    await _localStorageService.updateFaithJourney(userId, updates);
+    await localStorageService.updateFaithJourney(userId, updates);
   }
 
   // Delete faith journey
   Future<void> deleteFaithJourney(String userId) async {
-    await _localStorageService.deleteFaithJourney(userId);
+    await localStorageService.deleteFaithJourney(userId);
   }
 
   // Stream faith journey
   Stream<FaithJourney?> streamFaithJourney(String userId) {
-    return _localStorageService.streamFaithJourney(userId);
+    return localStorageService.streamFaithJourney(userId);
   }
 
   // Record reading session
   Future<void> recordReadingSession(ReadingSession session) async {
-    await _localStorageService.recordReadingSession(session);
+    await localStorageService.recordReadingSession(session);
     
     // Update faith journey statistics
     final journey = await getFaithJourney(session.userId);
@@ -719,36 +739,36 @@ class DatabaseService {
 
   // Create reading habit
   Future<void> createReadingHabit(ReadingHabit habit) async {
-    await _localStorageService.createReadingHabit(habit);
+    await localStorageService.createReadingHabit(habit);
   }
 
   // Get reading habit
   Future<ReadingHabit?> getReadingHabit(String userId) async {
-    return _localStorageService.getReadingHabit(userId);
+    return localStorageService.getReadingHabit(userId);
   }
 
   // Update reading habit
   Future<void> updateReadingHabit(String userId, Map<String, dynamic> updates) async {
-    await _localStorageService.updateReadingHabit(userId, updates);
+    await localStorageService.updateReadingHabit(userId, updates);
   }
 
   // Delete reading habit
   Future<void> deleteReadingHabit(String userId) async {
-    await _localStorageService.deleteReadingHabit(userId);
+    await localStorageService.deleteReadingHabit(userId);
   }
 
   // Stream reading habit
   Stream<ReadingHabit?> streamReadingHabit(String userId) {
-    return _localStorageService.streamReadingHabit(userId);
+    return localStorageService.streamReadingHabit(userId);
   }
 
   // ============ SUBSCRIPTION OPERATIONS ============
 
   // Create subscription
   Future<String> createSubscription(Subscription subscription) async {
-    final subscriptionId = _localStorageService.generateId();
+    final subscriptionId = localStorageService.generateId();
     final subscriptionWithId = subscription.copyWith(id: subscriptionId);
-    await _localStorageService.createSubscription(subscriptionWithId);
+    await localStorageService.createSubscription(subscriptionWithId);
     
     // Update user's premium tier
     final user = await getUser(subscription.userId);
@@ -764,27 +784,27 @@ class DatabaseService {
 
   // Get subscription by ID
   Future<Subscription?> getSubscription(String subscriptionId) async {
-    return _localStorageService.getSubscription(subscriptionId);
+    return localStorageService.getSubscription(subscriptionId);
   }
 
   // Get active subscription for user
   Future<Subscription?> getActiveSubscription(String userId) async {
-    return _localStorageService.getActiveSubscription(userId);
+    return localStorageService.getActiveSubscription(userId);
   }
 
   // Get all subscriptions for user
   Future<List<Subscription>> getUserSubscriptions(String userId) async {
-    return _localStorageService.getUserSubscriptions(userId);
+    return localStorageService.getUserSubscriptions(userId);
   }
 
   // Update subscription
   Future<void> updateSubscription(String subscriptionId, Map<String, dynamic> updates) async {
-    await _localStorageService.updateSubscription(subscriptionId, updates);
+    await localStorageService.updateSubscription(subscriptionId, updates);
   }
 
   // Delete subscription
   Future<void> deleteSubscription(String subscriptionId) async {
-    await _localStorageService.deleteSubscription(subscriptionId);
+    await localStorageService.deleteSubscription(subscriptionId);
   }
 
   // Check if user has active premium
@@ -816,45 +836,45 @@ class DatabaseService {
 
   // Create payment
   Future<String> createPayment(Payment payment) async {
-    final paymentId = _localStorageService.generateId();
+    final paymentId = localStorageService.generateId();
     final paymentWithId = payment.copyWith(id: paymentId);
-    await _localStorageService.createPayment(paymentWithId);
+    await localStorageService.createPayment(paymentWithId);
     return paymentId;
   }
 
   // Get payment by ID
   Future<Payment?> getPayment(String paymentId) async {
-    return _localStorageService.getPayment(paymentId);
+    return localStorageService.getPayment(paymentId);
   }
 
   // Get user payments
   Future<List<Payment>> getUserPayments(String userId) async {
-    return _localStorageService.getUserPayments(userId);
+    return localStorageService.getUserPayments(userId);
   }
 
   // Update payment
   Future<void> updatePayment(String paymentId, Map<String, dynamic> updates) async {
-    await _localStorageService.updatePayment(paymentId, updates);
+    await localStorageService.updatePayment(paymentId, updates);
   }
 
   // Delete payment
   Future<void> deletePayment(String paymentId) async {
-    await _localStorageService.deletePayment(paymentId);
+    await localStorageService.deletePayment(paymentId);
   }
 
   // ============ MODERATION OPERATIONS ============
 
   // Create moderation report
   Future<String> createModerationReport(ModerationReportModel report) async {
-    final reportId = _localStorageService.generateId();
+    final reportId = localStorageService.generateId();
     final reportWithId = report.copyWith(id: reportId);
-    await _localStorageService.createModerationReport(reportWithId);
+    await localStorageService.createModerationReport(reportWithId);
     return reportId;
   }
 
   // Get moderation report
   Future<ModerationReportModel?> getModerationReport(String reportId) async {
-    return _localStorageService.getModerationReport(reportId);
+    return localStorageService.getModerationReport(reportId);
   }
 
   // Get all moderation reports
@@ -862,17 +882,17 @@ class DatabaseService {
     ModerationStatus? status,
     int limit = 50,
   }) async {
-    return _localStorageService.getModerationReports(status: status, limit: limit);
+    return localStorageService.getModerationReports(status: status, limit: limit);
   }
 
   // Update moderation report
   Future<void> updateModerationReport(String reportId, Map<String, dynamic> updates) async {
-    await _localStorageService.updateModerationReport(reportId, updates);
+    await localStorageService.updateModerationReport(reportId, updates);
   }
 
   // Delete moderation report
   Future<void> deleteModerationReport(String reportId) async {
-    await _localStorageService.deleteModerationReport(reportId);
+    await localStorageService.deleteModerationReport(reportId);
   }
 
   // ============ STATISTICS ============
@@ -880,8 +900,8 @@ class DatabaseService {
   // Get app statistics
   Future<Map<String, int>> getAppStatistics() async {
     final allUsers = await getAllUsers();
-    final allBlogPosts = await _localStorageService.getAllBlogPosts();
-    final allChatRooms = await _localStorageService.getAllChatRooms();
+    final allBlogPosts = await localStorageService.getAllBlogPosts();
+    final allChatRooms = await localStorageService.getAllChatRooms();
     
     return {
       'totalUsers': allUsers.length,

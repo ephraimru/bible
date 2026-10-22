@@ -237,7 +237,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
                       padding: const EdgeInsets.all(AppTheme.md),
                       child: Column(
                         children: [
-                          const Row(
+                          Row(
                             children: [
                               Icon(Icons.skip_next, size: 40, color: Colors.purple),
                               SizedBox(width: AppTheme.md),
@@ -250,7 +250,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
                                       style: TextStyle(
                                         fontSize: 20,
                                         fontWeight: FontWeight.bold,
-                                        color: Colors.purple.shade800,
+                                        color: Colors.purple[800],
                                       ),
                                     ),
                                     Text(

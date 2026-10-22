@@ -61,9 +61,10 @@ class PremiumService {
   }
 
   // Stream active subscription
-  Stream<Subscription?> streamActiveSubscription(String userId) {
+  Stream<Subscription?> streamActiveSubscription(String userId) async* {
     // For local mode, just return a stream with the current subscription
-    return Stream.value(getActiveSubscription(userId));
+    final sub = await getActiveSubscription(userId);
+    yield sub;
   }
 
   // Get available products (empty for local mode)
@@ -176,7 +177,7 @@ class PremiumService {
     final subscription = Subscription(
       id: '',
       userId: userId,
-      plan: tier.name,
+      plan: tier,
       startDate: DateTime.now(),
       endDate: DateTime.now().add(duration),
       isActive: true,
