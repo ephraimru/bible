@@ -1,302 +1,182 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:uuid/uuid.dart';
 
 import '../models/user_model.dart';
-import 'database_service.dart';
+import 'local_storage_service.dart';
 
-// Auth Service Provider
-final localAuthServiceProvider = Provider<AuthService>((ref) {
-  return AuthService(
-    firebaseAuth: FirebaseAuth.instance,
-    firestore: FirebaseFirestore.instance,
-    databaseService: ref.read(localStorageServiceProvider),
+// Auth Service Provider - uses LocalStorageService (Hive)
+final localAuthServiceProvider = Provider<LocalAuthService>((ref) {
+  return LocalAuthService(
+    localStorageService: ref.read(localStorageServiceProvider),
   );
 });
 
 // Auth State Provider
-final authStateProvider = StreamProvider<User?>((ref) {
+final localAuthStateProvider = StreamProvider<UserModel?>((ref) {
   return ref.read(localAuthServiceProvider).authStateChanges;
 });
 
 // Current User Provider
-final localCurrentUserProvider = StreamProvider<UserModel?>((ref) async* {
-  final authState = ref.watch(authStateProvider);
-  
-  await for (final user in authState) {
-    if (user != null) {
-      final userModel = await ref
-          .read(localAuthServiceProvider)
-          .getUser(user.uid);
-      yield userModel;
-    } else {
-      yield null;
-    }
-  }
+final localCurrentUserProvider = Provider<UserModel?>((ref) {
+  return ref.read(localAuthServiceProvider).currentUser;
 });
 
-class AuthService {
-  final FirebaseAuth _firebaseAuth;
-  final FirebaseFirestore _firestore;
-  final DatabaseService _databaseService;
+class LocalAuthService {
+  final LocalStorageService _localStorageService;
+  final Uuid _uuid = const Uuid();
+  
+  // Keys for storing auth state
+  static const String _currentUserIdKey = 'current_user_id';
+  static const String _isLoggedInKey = 'is_logged_in';
+  
+  // Current user
+  UserModel? _currentUser;
+  
+  // Stream controller for auth state changes
+  final _authStateController = StreamController<UserModel?>.broadcast();
+  
+  LocalAuthService({
+    required LocalStorageService localStorageService,
+  }) : _localStorageService = localStorageService {
+    // Load current user on initialization
+    _loadCurrentUser();
+  }
 
-  AuthService({
-    required FirebaseAuth firebaseAuth,
-    required FirebaseFirestore firestore,
-    required DatabaseService databaseService,
-  })  : _firebaseAuth = firebaseAuth,
-        _firestore = firestore,
-        _databaseService = databaseService;
-
-  // Auth state stream
-  Stream<User?> get authStateChanges => _firebaseAuth.authStateChanges();
-
-  // User stream
-  Stream<User?> get user => _firebaseAuth.userChanges();
-
-  // Sign in with email and password
-  Future<UserModel> signInWithEmailAndPassword({
-    required String email,
-    required String password,
-  }) async {
-    try {
-      final userCredential = await _firebaseAuth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      
-      final user = userCredential.user!;
-      
-      // Check if user exists in Firestore
-      final userModel = await getUser(user.uid);
-      
-      if (userModel == null) {
-        // Create user document if it doesn't exist
-        final newUser = UserModel(
-          id: user.uid,
-          email: user.email ?? email,
-          displayName: user.displayName ?? email.split('@')[0],
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        );
-        
-        await _databaseService.createUser(newUser);
-        return newUser;
-      }
-      
-      // Update last login
-      await _databaseService.updateUser(
-        user.uid,
-        {'lastLoginAt': DateTime.now()},
-      );
-      
-      return userModel;
-    } catch (e) {
-      rethrow;
+  // Load current user from storage
+  Future<void> _loadCurrentUser() async {
+    final userId = await _getStoredUserId();
+    if (userId != null) {
+      _currentUser = await _localStorageService.getUser(userId);
+      _authStateController.add(_currentUser);
     }
   }
 
-  // Sign up with email and password
+  // Get stored user ID
+  Future<String?> _getStoredUserId() async {
+    return _localStorageService.getAppSetting<String>(_currentUserIdKey);
+  }
+
+  // Set stored user ID
+  Future<void> _setStoredUserId(String? userId) async {
+    if (userId != null) {
+      await _localStorageService.setAppSetting(_currentUserIdKey, userId);
+      await _localStorageService.setAppSetting(_isLoggedInKey, true);
+    } else {
+      await _localStorageService.setAppSetting(_currentUserIdKey, null);
+      await _localStorageService.setAppSetting(_isLoggedInKey, false);
+    }
+  }
+
+  // Auth state stream
+  Stream<UserModel?> get authStateChanges => _authStateController.stream;
+
+  // Get current user
+  UserModel? get currentUser => _currentUser;
+
+  // Get current user ID
+  String? get currentUserId => _currentUser?.id;
+
+  // Check if user is logged in
+  bool get isLoggedIn => _currentUser != null;
+
+  // Sign up with email and password (simulated for local storage)
   Future<UserModel> signUpWithEmailAndPassword({
     required String email,
     required String password,
     required String displayName,
     String? photoUrl,
   }) async {
-    try {
-      final userCredential = await _firebaseAuth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      
-      final user = userCredential.user!;
-      
-      // Create user document
-      final newUser = UserModel(
-        id: user.uid,
-        email: user.email ?? email,
-        displayName: displayName,
-        photoUrl: photoUrl,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-      
-      await _databaseService.createUser(newUser);
-      
-      return newUser;
-    } catch (e) {
-      rethrow;
+    // Check if user already exists
+    final existingUsers = await _localStorageService.getAllUsers();
+    final userExists = existingUsers.any((u) => u.email == email);
+    
+    if (userExists) {
+      throw Exception('User with this email already exists');
     }
+    
+    // Create new user
+    final userId = _uuid.v4();
+    final newUser = UserModel(
+      id: userId,
+      email: email,
+      displayName: displayName,
+      photoUrl: photoUrl,
+      role: UserRole.believer,
+      premiumTier: PremiumTier.free,
+      followingCount: 0,
+      followersCount: 0,
+      savedVersesCount: 0,
+      likedVersesCount: 0,
+      blogPostsCount: 0,
+      savedVerseIds: [],
+      likedVerseIds: [],
+      bookmarkedBlogPostIds: [],
+      readingStats: {},
+      consecutiveReadingDays: 0,
+      totalReadingDays: 0,
+      streakStartDate: DateTime.now().millisecondsSinceEpoch,
+      badges: [],
+      hasPaidToSkipLadder: false,
+      lastReadingDate: null,
+      lastNotificationDate: null,
+      chosenTitle: null,
+      blockedUserIds: [],
+      preferences: {},
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      followingUserIds: [],
+    );
+    
+    await _localStorageService.createUser(newUser);
+    
+    // Set as current user
+    _currentUser = newUser;
+    await _setStoredUserId(userId);
+    _authStateController.add(newUser);
+    
+    return newUser;
   }
 
-  // Sign in with Google
-  Future<UserModel> signInWithGoogle() async {
-    try {
-      final googleSignIn = GoogleSignIn();
-      final googleUser = await googleSignIn.signIn();
-      
-      if (googleUser == null) {
-        throw Exception('Google sign in cancelled');
-      }
-      
-      final googleAuth = await googleUser.authentication;
-      final oAuthCredential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-      
-      final userCredential = await _firebaseAuth.signInWithCredential(
-        oAuthCredential,
-      );
-      
-      final user = userCredential.user!;
-      
-      // Check if user exists in Firestore
-      final userModel = await getUser(user.uid);
-      
-      if (userModel == null) {
-        // Create user document
-        final newUser = UserModel(
-          id: user.uid,
-          email: user.email ?? googleUser.email,
-          displayName: user.displayName ?? googleUser.displayName ?? 'User',
-          photoUrl: user.photoURL ?? googleUser.photoUrl,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        );
-        
-        await _databaseService.createUser(newUser);
-        return newUser;
-      }
-      
-      // Update user info if needed
-      if (userModel.photoUrl != user.photoURL ||
-          userModel.displayName != user.displayName) {
-        await _databaseService.updateUser(
-          user.uid,
-          {
-            'photoUrl': user.photoURL ?? userModel.photoUrl,
-            'displayName': user.displayName ?? userModel.displayName,
-            'updatedAt': DateTime.now(),
-          },
-        );
-      }
-      
-      return userModel;
-    } catch (e) {
-      rethrow;
-    }
+  // Sign in with email and password (simulated for local storage)
+  Future<UserModel> signInWithEmailAndPassword({
+    required String email,
+    required String password,
+  }) async {
+    final existingUsers = await _localStorageService.getAllUsers();
+    final user = existingUsers.firstWhere(
+      (u) => u.email == email,
+      orElse: () => throw Exception('User not found'),
+    );
+    
+    // In a real app, you would verify the password here
+    // For local storage demo, we just check if user exists
+    
+    // Set as current user
+    _currentUser = user;
+    await _setStoredUserId(user.id);
+    _authStateController.add(user);
+    
+    // Update last login
+    await _localStorageService.updateUser(user.id, {
+      'lastLoginAt': DateTime.now(),
+      'updatedAt': DateTime.now(),
+    });
+    
+    return user;
   }
 
-  // Sign in with Apple
-  Future<UserModel> signInWithApple() async {
-    try {
-      final appleCredential = await SignInWithApple.getAppleIDCredential(
-        scopes: [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
-      );
-      
-      final oAuthCredential = OAuthProvider('apple.com').credential(
-        idToken: appleCredential.identityToken,
-        accessToken: appleCredential.authorizationCode,
-      );
-      
-      final userCredential = await _firebaseAuth.signInWithCredential(
-        oAuthCredential,
-      );
-      
-      final user = userCredential.user!;
-      
-      // Check if user exists in Firestore
-      final userModel = await getUser(user.uid);
-      
-      if (userModel == null) {
-        // Create user document
-        final displayName = appleCredential.givenName != null && 
-            appleCredential.familyName != null
-            ? '${appleCredential.givenName} ${appleCredential.familyName}'
-            : 'User';
-        
-        final newUser = UserModel(
-          id: user.uid,
-          email: user.email ?? appleCredential.email ?? '',
-          displayName: displayName,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        );
-        
-        await _databaseService.createUser(newUser);
-        return newUser;
-      }
-      
-      return userModel;
-    } catch (e) {
-      rethrow;
-    }
+  // Sign out
+  Future<void> signOut() async {
+    _currentUser = null;
+    await _setStoredUserId(null);
+    _authStateController.add(null);
   }
 
-  // Get user from Firestore
-  Future<UserModel?> getUser(String userId) async {
-    try {
-      final doc = await _firestore
-          .collection('users')
-          .doc(userId)
-          .get();
-      
-      if (doc.exists) {
-        return UserModel.fromFirestore(doc);
-      }
-      return null;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  // Update user password
-  Future<void> updatePassword(String newPassword) async {
-    try {
-      final user = _firebaseAuth.currentUser;
-      if (user != null) {
-        await user.updatePassword(newPassword);
-        await _databaseService.updateUser(
-          user.uid,
-          {'updatedAt': DateTime.now()},
-        );
-      }
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  // Reset password
-  Future<void> resetPassword(String email) async {
-    try {
-      await _firebaseAuth.sendPasswordResetEmail(email: email);
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  // Update email
-  Future<void> updateEmail(String newEmail) async {
-    try {
-      final user = _firebaseAuth.currentUser;
-      if (user != null) {
-        await user.updateEmail(newEmail);
-        await _databaseService.updateUser(
-          user.uid,
-          {
-            'email': newEmail,
-            'updatedAt': DateTime.now(),
-          },
-        );
-      }
-    } catch (e) {
-      rethrow;
+  // Delete account
+  Future<void> deleteAccount() async {
+    if (_currentUser != null) {
+      await _localStorageService.deleteUser(_currentUser!.id);
+      await signOut();
     }
   }
 
@@ -306,97 +186,173 @@ class AuthService {
     String? photoUrl,
     String? bio,
   }) async {
-    try {
-      final user = _firebaseAuth.currentUser;
-      if (user != null) {
-        final updates = <String, dynamic>{'updatedAt': DateTime.now()};
-        
-        if (displayName != null) {
-          updates['displayName'] = displayName;
-          await user.updateDisplayName(displayName);
-        }
-        if (photoUrl != null) {
-          updates['photoUrl'] = photoUrl;
-          await user.updatePhotoURL(photoUrl);
-        }
-        if (bio != null) {
-          updates['bio'] = bio;
-        }
-        
-        await _databaseService.updateUser(user.uid, updates);
+    if (_currentUser != null) {
+      final updates = <String, dynamic>{'updatedAt': DateTime.now()};
+      
+      if (displayName != null) {
+        updates['displayName'] = displayName;
       }
-    } catch (e) {
-      rethrow;
+      if (photoUrl != null) {
+        updates['photoUrl'] = photoUrl;
+      }
+      if (bio != null) {
+        updates['bio'] = bio;
+      }
+      
+      await _localStorageService.updateUser(_currentUser!.id, updates);
+      
+      // Update current user
+      _currentUser = _currentUser!.copyWith(
+        displayName: displayName ?? _currentUser!.displayName,
+        photoUrl: photoUrl ?? _currentUser!.photoUrl,
+        bio: bio ?? _currentUser!.bio,
+        updatedAt: DateTime.now(),
+      );
+      
+      _authStateController.add(_currentUser);
     }
+  }
+
+  // Update email
+  Future<void> updateEmail(String newEmail) async {
+    if (_currentUser != null) {
+      await _localStorageService.updateUser(_currentUser!.id, {
+        'email': newEmail,
+        'updatedAt': DateTime.now(),
+      });
+      
+      _currentUser = _currentUser!.copyWith(
+        email: newEmail,
+        updatedAt: DateTime.now(),
+      );
+      
+      _authStateController.add(_currentUser);
+    }
+  }
+
+  // Update password (simulated - in real app would hash and store)
+  Future<void> updatePassword(String newPassword) async {
+    // In a real app with backend, this would update the password
+    // For local storage, we don't store passwords
+    if (_currentUser != null) {
+      await _localStorageService.updateUser(_currentUser!.id, {
+        'updatedAt': DateTime.now(),
+      });
+    }
+  }
+
+  // Reset password (simulated)
+  Future<void> resetPassword(String email) async {
+    // In a real app, this would send a password reset email
+    // For local storage, we just verify the email exists
+    final existingUsers = await _localStorageService.getAllUsers();
+    final userExists = existingUsers.any((u) => u.email == email);
+    
+    if (!userExists) {
+      throw Exception('User with this email not found');
+    }
+  }
+
+  // Get user by ID
+  Future<UserModel?> getUser(String userId) async {
+    return _localStorageService.getUser(userId);
+  }
+
+  // Dispose
+  void dispose() {
+    _authStateController.close();
+  }
+}
+
+// Old AuthService for Firebase (kept for reference but not used)
+class AuthService {
+  final LocalAuthService _localAuthService;
+  final DatabaseService _databaseService;
+
+  AuthService({
+    required LocalAuthService localAuthService,
+    required DatabaseService databaseService,
+  })  : _localAuthService = localAuthService,
+        _databaseService = databaseService;
+
+  // Sign in with email and password
+  Future<UserModel> signInWithEmailAndPassword({
+    required String email,
+    required String password,
+  }) async {
+    return _localAuthService.signInWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+  }
+
+  // Sign up with email and password
+  Future<UserModel> signUpWithEmailAndPassword({
+    required String email,
+    required String password,
+    required String displayName,
+    String? photoUrl,
+  }) async {
+    return _localAuthService.signUpWithEmailAndPassword(
+      email: email,
+      password: password,
+      displayName: displayName,
+      photoUrl: photoUrl,
+    );
+  }
+
+  // Get user
+  Future<UserModel?> getUser(String userId) async {
+    return _localAuthService.getUser(userId);
   }
 
   // Sign out
   Future<void> signOut() async {
-    try {
-      await _firebaseAuth.signOut();
-      await GoogleSignIn().signOut();
-    } catch (e) {
-      rethrow;
-    }
+    await _localAuthService.signOut();
   }
 
   // Delete account
   Future<void> deleteAccount() async {
-    try {
-      final user = _firebaseAuth.currentUser;
-      if (user != null) {
-        // Delete user data from Firestore
-        await _databaseService.deleteUser(user.uid);
-        
-        // Delete user from Firebase Auth
-        await user.delete();
-      }
-    } catch (e) {
-      rethrow;
-    }
+    await _localAuthService.deleteAccount();
   }
 
-  // Reauthenticate user
-  Future<void> reauthenticateUser(String password) async {
-    try {
-      final user = _firebaseAuth.currentUser;
-      if (user != null && user.email != null) {
-        final credential = EmailAuthProvider.credential(
-          email: user.email!,
-          password: password,
-        );
-        await user.reauthenticateWithCredential(credential);
-      }
-    } catch (e) {
-      rethrow;
-    }
+  // Update profile
+  Future<void> updateProfile({
+    String? displayName,
+    String? photoUrl,
+    String? bio,
+  }) async {
+    await _localAuthService.updateProfile(
+      displayName: displayName,
+      photoUrl: photoUrl,
+      bio: bio,
+    );
   }
 
-  // Check if email is verified
-  bool get isEmailVerified {
-    final user = _firebaseAuth.currentUser;
-    return user?.emailVerified ?? false;
+  // Update email
+  Future<void> updateEmail(String newEmail) async {
+    await _localAuthService.updateEmail(newEmail);
   }
 
-  // Send email verification
-  Future<void> sendEmailVerification() async {
-    try {
-      final user = _firebaseAuth.currentUser;
-      if (user != null && !user.emailVerified) {
-        await user.sendEmailVerification();
-      }
-    } catch (e) {
-      rethrow;
-    }
+  // Update password
+  Future<void> updatePassword(String newPassword) async {
+    await _localAuthService.updatePassword(newPassword);
+  }
+
+  // Reset password
+  Future<void> resetPassword(String email) async {
+    await _localAuthService.resetPassword(email);
   }
 
   // Get current user ID
-  String? get currentUserId {
-    return _firebaseAuth.currentUser?.uid;
-  }
+  String? get currentUserId => _localAuthService.currentUserId;
 
-  // Get current Firebase User
-  User? get currentFirebaseUser {
-    return _firebaseAuth.currentUser;
-  }
+  // Get current user
+  UserModel? get currentUser => _localAuthService.currentUser;
+
+  // Check if logged in
+  bool get isLoggedIn => _localAuthService.isLoggedIn;
+
+  // Auth state stream
+  Stream<UserModel?> get authStateChanges => _localAuthService.authStateChanges;
 }
