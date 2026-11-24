@@ -5,7 +5,7 @@ part 'verse_model.freezed.dart';
 part 'verse_model.g.dart';
 
 @freezed
-class VerseModel with _$VerseModel {
+abstract class VerseModel with _$VerseModel {
   const factory VerseModel({
     required String id,
     required String reference,
@@ -34,7 +34,7 @@ class VerseModel with _$VerseModel {
 
 /// Daily verse model with additional metadata
 @freezed
-class DailyVerseModel with _$DailyVerseModel {
+abstract class DailyVerseModel with _$DailyVerseModel {
   const factory DailyVerseModel({
     required VerseModel verse,
     required DateTime date,
@@ -48,11 +48,10 @@ class DailyVerseModel with _$DailyVerseModel {
   factory DailyVerseModel.fromJson(Map<String, dynamic> json) =>
       _$DailyVerseModelFromJson(json);
 }
-}
 
 /// Bible book model
 @freezed
-class BibleBook with _$BibleBook {
+abstract class BibleBook with _$BibleBook {
   const factory BibleBook({
     required String name,
     required String abbreviation,
@@ -67,7 +66,7 @@ class BibleBook with _$BibleBook {
 
 /// Bible chapter model
 @freezed
-class BibleChapter with _$BibleChapter {
+abstract class BibleChapter with _$BibleChapter {
   const factory BibleChapter({
     required String book,
     required int chapter,
@@ -81,7 +80,7 @@ class BibleChapter with _$BibleChapter {
 
 /// Search result for verses
 @freezed
-class VerseSearchResult with _$VerseSearchResult {
+abstract class VerseSearchResult with _$VerseSearchResult {
   const factory VerseSearchResult({
     required List<VerseModel> verses,
     required int totalCount,

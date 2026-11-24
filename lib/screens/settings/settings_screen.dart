@@ -8,7 +8,6 @@ import '../../services/local_auth_service.dart';
 import '../../services/local_storage_service.dart';
 import '../../services/faith_journey_service.dart';
 import '../../services/notification_service.dart';
-import '../../services/mock_bible_service.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -142,7 +141,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       secondary: const Icon(Icons.notifications_active, color: Colors.red),
                       title: const Text('Daily Reading Reminders'),
                       subtitle: const Text('Get reminded to read your Bible daily'),
-                      value: user.preferences['dailyReminders'] ?? true,
+                      value: user.boolPref('dailyReminders'),
                       onChanged: (value) => _updatePreference(user.id, 'dailyReminders', value),
                     ),
                     const Divider(),
@@ -150,14 +149,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       secondary: const Icon(Icons.volume_up, color: Colors.blue),
                       title: const Text('Sound'),
                       subtitle: const Text('Enable notification sounds'),
-                      value: user.preferences['notificationSound'] ?? true,
+                      value: user.boolPref('notificationSound'),
                       onChanged: (value) => _updatePreference(user.id, 'notificationSound', value),
                     ),
                     const Divider(),
                     ListTile(
                       leading: const Icon(Icons.schedule, color: Colors.green),
                       title: const Text('Reminder Time'),
-                      subtitle: Text(user.preferences['reminderTime'] ?? '09:00'),
+                      subtitle: Text(user.stringPref('reminderTime', '09:00')),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                       onTap: _showTimePicker,
                     ),
@@ -180,7 +179,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       secondary: const Icon(Icons.messenger, color: Colors.blue),
                       title: const Text('Chat Notifications'),
                       subtitle: const Text('Get notified of new messages'),
-                      value: user.preferences['chatNotifications'] ?? true,
+                      value: user.boolPref('chatNotifications'),
                       onChanged: (value) => _updatePreference(user.id, 'chatNotifications', value),
                     ),
                     const Divider(),
@@ -300,8 +299,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay(
-        hour: int.tryParse(user.preferences['reminderTime']?.split(':')[0] ?? '9') ?? 9,
-        minute: int.tryParse(user.preferences['reminderTime']?.split(':')[1] ?? '00') ?? 0,
+        hour: int.tryParse(user.stringPref('reminderTime', '09:00').split(':')[0]) ?? 9,
+        minute: int.tryParse(user.stringPref('reminderTime', '09:00').split(':')[1]) ?? 0,
       ),
     );
     
@@ -372,7 +371,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     return ListTile(
                       title: Text(blockedUserId),
                       trailing: IconButton(
-                        icon: const Icon(Icons.unblock, color: Colors.green),
+                        icon: const Icon(Icons.person_add_alt_1, color: Colors.green),
                         onPressed: () async {
                           final localStorage = ref.read(localStorageServiceProvider);
                           final blockedUserIds = List<String>.from(user.blockedUserIds);
@@ -444,9 +443,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               SizedBox(height: AppTheme.md),
               Text('We respect your privacy and are committed to protecting your personal data.'),
               SizedBox(height: AppTheme.sm),
-              Text('In local mode, all your data is stored on your device and is not shared with anyone.'),
+              Text('All your data is stored on this device and is not shared with anyone.'),
               SizedBox(height: AppTheme.sm),
-              Text('When using Firebase, data is stored in the cloud and protected by Firebase security.'),
+              Text('Passwords are never stored: only a salted hash is kept to verify your sign-in.'),
             ],
           ),
         ),

@@ -43,7 +43,7 @@ extension PremiumTierExtension on PremiumTier {
 }
 
 @freezed
-class UserModel with _$UserModel {
+abstract class UserModel with _$UserModel {
   const factory UserModel({
     required String id,
     required String email,
@@ -74,7 +74,7 @@ class UserModel with _$UserModel {
     @Default(null) DateTime? lastNotificationDate,
     @Default(null) String? chosenTitle,
     @Default([]) List<String> blockedUserIds,
-    @Default({}) Map<String, bool> preferences,
+    @Default({}) Map<String, dynamic> preferences,
     @Default(null) DateTime? createdAt,
     @Default(null) DateTime? updatedAt,
     // Reading habit tracking
@@ -84,6 +84,18 @@ class UserModel with _$UserModel {
 
   factory UserModel.fromJson(Map<String, dynamic> json) =>
       _$UserModelFromJson(json);
+}
+
+extension UserPreferences on UserModel {
+  bool boolPref(String key, {bool fallback = true}) {
+    final value = preferences[key];
+    return value is bool ? value : fallback;
+  }
+
+  String stringPref(String key, String fallback) {
+    final value = preferences[key];
+    return value is String ? value : fallback;
+  }
 }
 
 /// Extension for role progression logic
@@ -134,7 +146,7 @@ extension UserRoleExtension on UserRole {
 
 /// Reading statistics model
 @freezed
-class ReadingStats with _$ReadingStats {
+abstract class ReadingStats with _$ReadingStats {
   const factory ReadingStats({
     @Default(0) int totalVersesRead,
     @Default(0) int totalChaptersRead,

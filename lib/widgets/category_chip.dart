@@ -23,9 +23,7 @@ class CategoryChip extends StatelessWidget {
       label: Text(category.displayName),
       selected: isSelected,
       onSelected: (selected) {
-        if (onSelected != null) {
-          onSelected();
-        }
+        onSelected?.call();
       },
       backgroundColor: Colors.white,
       selectedColor: color.withOpacity(0.1),
@@ -57,21 +55,3 @@ class CategoryChip extends StatelessWidget {
 }
 
 // Category extension for display names
-extension on BlogCategory {
-  String get displayName {
-    switch (this) {
-      case BlogCategory.devotionals:
-        return 'Devotionals';
-      case BlogCategory.sermons:
-        return 'Sermons';
-      case BlogCategory.testimonies:
-        return 'Testimonies';
-      case BlogCategory.bibleStudy:
-        return 'Bible Study';
-      case BlogCategory.faithJourney:
-        return 'Faith Journey';
-      case BlogCategory.gospelReflections:
-        return 'Gospel Reflections';
-    }
-  }
-}

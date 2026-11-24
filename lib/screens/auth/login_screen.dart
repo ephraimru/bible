@@ -47,30 +47,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
     } catch (e) {
       setState(() {
-        _errorMessage = e.toString().replaceAll('Exception: ', '');
-      });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _signInWithGoogle() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-    
-    try {
-      await ref.read(localAuthServiceProvider).signInWithGoogle();
-      
-      if (mounted) {
-        context.go('/home');
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = e.toString().replaceAll('Exception: ', '');
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
       });
     } finally {
       setState(() {
@@ -101,12 +78,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               const SizedBox(height: AppTheme.md),
               
               // App icon
-              const Column(
+              Column(
                 children: [
                   Container(
                     padding: EdgeInsets.all(AppTheme.md),
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.1),
+                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -226,52 +203,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               const SizedBox(height: AppTheme.md),
               
-              // Divider
-              const Row(
-                children: [
-                  Expanded(child: Divider()),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: AppTheme.sm),
-                    child: Text('or continue with'),
-                  ),
-                  Expanded(child: Divider()),
-                ],
-              ),
-              const SizedBox(height: AppTheme.md),
-              
-              // Social login buttons
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Google login
-                  IconButton(
-                    icon: const Icon(Icons.g_mobiledata, size: 40),
-                    onPressed: _isLoading ? null : _signInWithGoogle,
-                    style: IconButton.styleFrom(
-                      padding: const EdgeInsets.all(AppTheme.md),
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.red,
-                      shape: const CircleBorder(),
-                    ),
-                  ),
-                  const SizedBox(width: AppTheme.md),
-                  
-                  // Apple login (placeholder)
-                  IconButton(
-                    icon: const Icon(Icons.apple, size: 40),
-                    onPressed: _isLoading ? null : () => _showAppleLogin(),
-                    style: IconButton.styleFrom(
-                      padding: const EdgeInsets.all(AppTheme.md),
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black,
-                      shape: const CircleBorder(),
-                    ),
-                  ),
-                ],
-              ),
-              
-              const SizedBox(height: AppTheme.md),
-              
               // Don't have an account
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -290,12 +221,4 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  void _showAppleLogin() {
-    // For local mode, we'll just show a message
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Apple Sign In is not available in local mode. Please use email or Google.'),
-      ),
-    );
-  }
 }

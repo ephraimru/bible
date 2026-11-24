@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
+import '../../config/router.dart';
 import '../../config/theme.dart';
 import '../../models/verse_model.dart';
 import '../../services/bible_service.dart';
-import '../widgets/book_card.dart';
-import '../widgets/search_bar.dart';
+import '../../widgets/book_card.dart';
+import '../../widgets/search_bar.dart';
 
 class BibleScreen extends ConsumerStatefulWidget {
   const BibleScreen({super.key});
@@ -32,7 +32,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
 
   Future<void> _loadBooks() async {
     try {
-      final books = await ref.read(mockBibleServiceProvider).getBibleBooks();
+      final books = await ref.read(bibleServiceProvider).getBibleBooks();
       setState(() {
         _books = books;
         _filteredBooks = books;
@@ -75,13 +75,8 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
-            onPressed: () {
-              // Open search dialog
-              showSearch(
-                context: context,
-                delegate: BibleSearchDelegate(ref: ref),
-              );
-            },
+            tooltip: 'Search the Bible',
+            onPressed: () => openBibleSearch(context, ref),
           ),
         ],
       ),
@@ -173,10 +168,13 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
   }
 }
 
-// Bible search delegate
-class BibleSearchDelegate extends SearchDelegate<String> {
-  final ProviderRef ref;
-  
+/// Full-text and reference search over the whole KJV.
+///
+/// Returns the selected verse id (or null) when closed; use [openBibleSearch]
+/// to show it and navigate to the chosen verse.
+class BibleSearchDelegate extends SearchDelegate<String?> {
+  final WidgetRef ref;
+
   BibleSearchDelegate({required this.ref});
 
   @override
@@ -195,9 +193,7 @@ class BibleSearchDelegate extends SearchDelegate<String> {
   Widget buildLeading(BuildContext context) {
     return IconButton(
       icon: const Icon(Icons.arrow_back),
-      onPressed: () {
-        close(context, '');
-      },
+      onPressed: () => close(context, null),
     );
   }
 
@@ -212,14 +208,19 @@ class BibleSearchDelegate extends SearchDelegate<String> {
   }
 
   Widget _buildSearchResults(BuildContext context) {
-    if (query.isEmpty) {
-      return const Center(
-        child: Text('Enter a search term'),
+    if (query.trim().length < 3) {
+      return const Padding(
+        padding: EdgeInsets.all(AppTheme.lg),
+        child: Text(
+          'Search for a word or phrase (e.g. "living water"), '
+          'or type a reference such as "John 3:16" or "Ps 23".',
+          textAlign: TextAlign.center,
+        ),
       );
     }
-    
+
     return FutureBuilder<List<VerseModel>>(
-      future: ref.read(mockBibleServiceProvider).searchVerses(query: query),
+      future: ref.read(bibleServiceProvider).searchVerses(query: query),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
@@ -246,10 +247,7 @@ class BibleSearchDelegate extends SearchDelegate<String> {
                     ? '${verse.text.substring(0, 100)}...'
                     : verse.text,
               ),
-              onTap: () {
-                close(context, verse.id);
-                context.pushVerseDetail(verse.id);
-              },
+              onTap: () => close(context, verse.id),
             );
           },
         );
@@ -259,4 +257,15 @@ class BibleSearchDelegate extends SearchDelegate<String> {
 
   @override
   String get searchFieldLabel => 'Search Bible...';
+}
+
+/// Shows [BibleSearchDelegate] and opens the verse the user picks.
+Future<void> openBibleSearch(BuildContext context, WidgetRef ref) async {
+  final verseId = await showSearch<String?>(
+    context: context,
+    delegate: BibleSearchDelegate(ref: ref),
+  );
+  if (verseId != null && verseId.isNotEmpty && context.mounted) {
+    context.pushVerseDetail(verseId);
+  }
 }

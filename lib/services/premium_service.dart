@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/user_model.dart';
 import '../models/premium_model.dart';
+import 'local_auth_service.dart';
 import 'local_storage_service.dart';
 
 // Premium Service Provider
@@ -12,12 +13,11 @@ final premiumServiceProvider = Provider<PremiumService>((ref) {
 });
 
 // Current Subscription Provider
-final currentSubscriptionProvider = Provider<Subscription?>((ref) {
-  final userId = ref.read(localAuthServiceProvider).currentUserId;
+final currentSubscriptionProvider = FutureProvider<Subscription?>((ref) async {
+  final userId = ref.watch(localAuthStateProvider).value?.id ??
+      ref.read(localAuthServiceProvider).currentUserId;
   if (userId == null) return null;
-  
-  final premiumService = ref.read(premiumServiceProvider);
-  return premiumService.getActiveSubscription(userId);
+  return ref.read(premiumServiceProvider).getActiveSubscription(userId);
 });
 
 // Available Products Provider (empty for local mode)
@@ -26,10 +26,22 @@ final availableProductsProvider = FutureProvider<List<dynamic>>((ref) async {
   return [];
 });
 
+/// Thrown when a purchase is attempted but no payment provider is set up.
+class PurchasesUnavailableException implements Exception {
+  @override
+  String toString() =>
+      'In-app purchases are not available yet. Premium features will be '
+      'offered once payments are set up.';
+}
+
 class PremiumService {
+  /// There is no app-store / payment integration yet. Until there is, every
+  /// purchase path refuses instead of granting paid features for free.
+  static const bool isStoreAvailable = false;
+
   final LocalStorageService _localStorageService;
 
-  // Product IDs (for future Firebase mode)
+  // Store product IDs (for when a payment provider is added)
   static const basicMonthly = 'faith_mission_basic_monthly';
   static const basicYearly = 'faith_mission_basic_yearly';
   static const proMonthly = 'faith_mission_pro_monthly';
@@ -72,7 +84,25 @@ class PremiumService {
     return [];
   }
 
-  // Process ladder skip payment (simulated for local mode)
+  /// Starts a subscription purchase. Returns true when the purchase completed.
+  Future<bool> purchaseSubscription(SubscriptionPlan plan) async {
+    if (!isStoreAvailable) throw PurchasesUnavailableException();
+    return false;
+  }
+
+  /// Starts the one-off "skip to Bishop" purchase.
+  Future<bool> purchaseLadderSkip() async {
+    if (!isStoreAvailable) throw PurchasesUnavailableException();
+    return false;
+  }
+
+  Future<bool> restorePurchases() async {
+    if (!isStoreAvailable) throw PurchasesUnavailableException();
+    return false;
+  }
+
+  /// Applies a ladder skip. Must only be called after the payment provider
+  /// has verified the purchase identified by [transactionId].
   Future<void> processLadderSkipPayment({
     required String userId,
     required double amount,
@@ -80,55 +110,46 @@ class PremiumService {
     required UserRole fromRole,
     required UserRole toRole,
   }) async {
-    // In local mode, just update the user's role
+    if (!isStoreAvailable) throw PurchasesUnavailableException();
     final user = await _localStorageService.getUser(userId);
-    if (user != null) {
-      await _localStorageService.updateUser(userId, {
-        'role': toRole.name,
-        'hasPaidToSkipLadder': true,
+    if (user == null) return;
+
+    await _localStorageService.updateUser(userId, {
+      'role': toRole,
+      'hasPaidToSkipLadder': true,
+      'canPostOnBlog': true,
+    });
+
+    final journey = await _localStorageService.getFaithJourney(userId);
+    if (journey != null) {
+      await _localStorageService.updateFaithJourney(userId, {
+        'currentRole': toRole,
+        'hasReached${toRole.name.capitalize()}': true,
+        'hasPaidToSkip': true,
         'canPostOnBlog': true,
-        'updatedAt': DateTime.now(),
       });
-      
-      // Update faith journey if it exists
-      final journey = await _localStorageService.getFaithJourney(userId);
-      if (journey != null) {
-        await _localStorageService.updateFaithJourney(userId, {
-          'currentRole': toRole.name,
-          'hasReached${toRole.name.capitalize()}': true,
-          'hasPaidToSkip': true,
-          'canPostOnBlog': true,
-          'updatedAt': DateTime.now(),
-        });
-      }
-      
-      // Create payment record
-      final payment = Payment(
-        id: '',
-        userId: userId,
-        amount: amount,
-        currency: 'USD',
-        method: PaymentMethod.creditCard,
-        status: PaymentStatus.completed,
-        transactionId: transactionId,
-        description: 'Ladder skip from ${fromRole.displayName} to ${toRole.displayName}',
-        isForLadderSkip: true,
-        ladderSkipFromRole: fromRole.name,
-        ladderSkipToRole: toRole.name,
-        createdAt: DateTime.now(),
-        completedAt: DateTime.now(),
-      );
-      
-      await _localStorageService.createPayment(payment);
     }
+
+    await _localStorageService.createPayment(Payment(
+      id: '',
+      userId: userId,
+      amount: amount,
+      currency: 'USD',
+      method: PaymentMethod.creditCard,
+      status: PaymentStatus.completed,
+      transactionId: transactionId,
+      description: 'Ladder skip from ${fromRole.displayName} to ${toRole.displayName}',
+      isForLadderSkip: true,
+      ladderSkipFromRole: fromRole.name,
+      ladderSkipToRole: toRole.name,
+      createdAt: DateTime.now(),
+      completedAt: DateTime.now(),
+    ));
   }
 
   // Update premium tier
   Future<void> updatePremiumTier(String userId, PremiumTier tier) async {
-    await _localStorageService.updateUser(userId, {
-      'premiumTier': tier.name,
-      'updatedAt': DateTime.now(),
-    });
+    await _localStorageService.updateUser(userId, {'premiumTier': tier});
   }
 
   // Get premium features for user
@@ -160,43 +181,39 @@ class PremiumService {
     return _localStorageService.getUserSubscriptions(userId);
   }
 
-  // Get payment history
-  Future<List<Payment>> getPaymentHistory(String userId) async {
-    // For local mode, return empty list
-    return [];
-  }
+  Future<List<Payment>> getPaymentHistory(String userId) =>
+      _localStorageService.getUserPayments(userId);
 
-  // Create subscription (simulated for local mode)
+  /// Records a subscription after the payment provider has verified it.
   Future<String> createSubscription({
     required String userId,
+    required SubscriptionPlan plan,
     required PremiumTier tier,
-    required double price,
-    required String currency,
     required Duration duration,
   }) async {
-    final subscription = Subscription(
+    if (!isStoreAvailable) throw PurchasesUnavailableException();
+    final now = DateTime.now();
+    final id = await _localStorageService.createSubscription(Subscription(
       id: '',
       userId: userId,
-      plan: tier,
-      startDate: DateTime.now(),
-      endDate: DateTime.now().add(duration),
+      plan: plan,
+      startDate: now,
+      endDate: now.add(duration),
       isActive: true,
       autoRenew: true,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
-    
-    await _localStorageService.createSubscription(subscription);
+      createdAt: now,
+      updatedAt: now,
+    ));
     await updatePremiumTier(userId, tier);
-    
-    return subscription.id;
+    return id;
   }
 
-  // Cancel subscription (simulated for local mode)
-  Future<void> cancelSubscription(String subscriptionId) async {
-    // In local mode, just mark as inactive
-    // This would need to be implemented properly for Firebase mode
-  }
+  Future<void> cancelSubscription(String subscriptionId) =>
+      _localStorageService.updateSubscription(subscriptionId, {
+        'isCancelled': true,
+        'autoRenew': false,
+        'cancelledAt': DateTime.now(),
+      });
 
   // Dispose
   void dispose() {

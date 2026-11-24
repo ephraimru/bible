@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 import '../../config/theme.dart';
 import '../../models/chat_model.dart';
-import '../../models/user_model.dart';
-import '../../services/auth_service.dart';
-import '../../services/database_service.dart';
+import '../../services/local_auth_service.dart';
+import '../../services/local_storage_service.dart';
 import '../../services/moderation_service.dart';
-import '../widgets/message_bubble.dart';
+import '../../widgets/message_bubble.dart';
 
 class ChatRoomScreen extends ConsumerStatefulWidget {
   final String roomId;
@@ -128,7 +126,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
       }
       
       // Get user info
-      final user = ref.read(localCurrentUserProvider).value;
+      final user = ref.read(localCurrentUserProvider);
       
       // Create message
       final message = ChatMessageModel(

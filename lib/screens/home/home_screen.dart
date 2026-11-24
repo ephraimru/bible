@@ -4,15 +4,13 @@ import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
 import '../../models/user_model.dart';
-import '../../models/faith_journey_model.dart';
-import '../../services/auth_service.dart';
+import '../../services/local_auth_service.dart';
 import '../../services/bible_service.dart';
 import '../../services/faith_journey_service.dart';
-import '../widgets/verse_card.dart';
-import '../widgets/faith_progress_card.dart';
-import '../widgets/daily_verse_section.dart';
-import '../widgets/reading_streak_card.dart';
-import '../widgets/quick_action_buttons.dart';
+import '../../widgets/faith_progress_card.dart';
+import '../../widgets/daily_verse_section.dart';
+import '../../widgets/reading_streak_card.dart';
+import '../../widgets/quick_action_buttons.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -30,7 +28,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _loadData() async {
     // Load daily verse
-    final dailyVerse = await ref.read(mockBibleServiceProvider).getDailyVerse();
+    await ref.read(bibleServiceProvider).initialize();
     
     // Check faith journey
     final userId = ref.read(localAuthServiceProvider).currentUserId;
@@ -44,7 +42,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(localCurrentUserProvider).value;
+    final user = ref.watch(localCurrentUserProvider);
     final journeyStats = ref.watch(faithJourneyStatsProvider);
     
     return Scaffold(

@@ -1,15 +1,61 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/theme.dart';
 import '../models/user_model.dart';
+import '../services/local_auth_service.dart';
 
-class ProfileHeader extends StatelessWidget {
+class ProfileHeader extends ConsumerWidget {
   final UserModel user;
 
   const ProfileHeader({super.key, required this.user});
 
+  Future<void> _editProfile(BuildContext context, WidgetRef ref) async {
+    final nameController = TextEditingController(text: user.displayName);
+    final bioController = TextEditingController(text: user.bio ?? '');
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Profile'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(labelText: 'Display name'),
+              textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: AppTheme.md),
+            TextField(
+              controller: bioController,
+              decoration: const InputDecoration(labelText: 'Bio'),
+              maxLines: 3,
+              maxLength: 200,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    final name = nameController.text.trim();
+    final bio = bioController.text.trim();
+    nameController.dispose();
+    bioController.dispose();
+    if (saved != true || name.isEmpty) return;
+    await ref.read(localAuthServiceProvider).updateProfile(displayName: name, bio: bio);
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -17,10 +63,7 @@ class ProfileHeader extends StatelessWidget {
         Container(
           height: 120,
           decoration: BoxDecoration(
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(AppTheme.largeBorderRadius.topLeft.x),
-              bottom: Radius.circular(AppTheme.largeBorderRadius.bottomLeft.x),
-            ),
+            borderRadius: AppTheme.largeBorderRadius,
             gradient: LinearGradient(
               colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
               begin: Alignment.topLeft,
@@ -128,11 +171,9 @@ class ProfileHeader extends StatelessWidget {
         const SizedBox(height: AppTheme.md),
         
         // Follow button (if viewing own profile, show edit)
-        if (user.id == ref?.read(localAuthServiceProvider)?.currentUserId)
+        if (user.id == ref.read(localAuthServiceProvider).currentUserId)
           ElevatedButton.icon(
-            onPressed: () {
-              // Edit profile
-            },
+            onPressed: () => _editProfile(context, ref),
             icon: const Icon(Icons.edit_outlined),
             label: const Text('Edit Profile'),
             style: ElevatedButton.styleFrom(

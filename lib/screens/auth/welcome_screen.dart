@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
@@ -20,12 +19,12 @@ class WelcomeScreen extends StatelessWidget {
                 const SizedBox(height: AppTheme.xl),
                 
                 // App icon and name
-                const Column(
+                Column(
                   children: [
                     Container(
                       padding: EdgeInsets.all(AppTheme.md),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withOpacity(0.1),
+                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
@@ -62,10 +61,10 @@ class WelcomeScreen extends StatelessWidget {
                     gradient: AppTheme.primaryGradient,
                   ),
                   child: Center(
-                    child: SvgPicture.asset(
-                      'assets/images/bible.svg',
-                      height: 200,
-                      color: Colors.white.withOpacity(0.8),
+                    child: Icon(
+                      Icons.menu_book_rounded,
+                      size: 160,
+                      color: Colors.white.withValues(alpha: 0.85),
                     ),
                   ),
                 ),
@@ -109,58 +108,6 @@ class WelcomeScreen extends StatelessWidget {
                 ),
                 
                 const SizedBox(height: AppTheme.md),
-                
-                // Divider
-                const Row(
-                  children: [
-                    Expanded(child: Divider()),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: AppTheme.md),
-                      child: Text('or'),
-                    ),
-                    Expanded(child: Divider()),
-                  ],
-                ),
-                
-                const SizedBox(height: AppTheme.md),
-                
-                // Social login buttons
-                OutlinedButton.icon(
-                  onPressed: () {
-                    // Google sign in
-                    context.go('/home');
-                  },
-                  icon: SvgPicture.asset(
-                    'assets/images/google.svg',
-                    height: 20,
-                  ),
-                  label: const Text('Continue with Google'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: AppTheme.md),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: AppTheme.mediumBorderRadius,
-                    ),
-                  ),
-                ),
-                
-                const SizedBox(height: AppTheme.md),
-                
-                OutlinedButton.icon(
-                  onPressed: () {
-                    // Apple sign in
-                    context.go('/home');
-                  },
-                  icon: const Icon(Icons.apple),
-                  label: const Text('Continue with Apple'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: AppTheme.md),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: AppTheme.mediumBorderRadius,
-                    ),
-                  ),
-                ),
-                
-                const SizedBox(height: AppTheme.lg),
                 
                 // Terms and privacy
                 Text(

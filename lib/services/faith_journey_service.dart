@@ -3,23 +3,25 @@ import 'package:intl/intl.dart';
 
 import '../models/user_model.dart';
 import '../models/faith_journey_model.dart';
-import '../models/verse_model.dart';
 import 'local_storage_service.dart';
-import 'mock_bible_service.dart';
+import 'bible_service.dart';
+import 'local_auth_service.dart';
 import 'notification_service.dart';
 
 // Faith Journey Service Provider
 final faithJourneyServiceProvider = Provider<FaithJourneyService>((ref) {
   return FaithJourneyService(
     localStorageService: ref.read(localStorageServiceProvider),
-    bibleService: ref.read(mockBibleServiceProvider),
+    bibleService: ref.read(bibleServiceProvider),
     notificationService: ref.read(notificationServiceProvider),
   );
 });
 
 // Faith Journey Stream Provider
 final faithJourneyStreamProvider = StreamProvider<FaithJourney?>((ref) {
-  final userId = ref.read(localAuthServiceProvider).currentUserId;
+  // Re-subscribe whenever a different user signs in.
+  final userId = ref.watch(localAuthStateProvider).value?.id ??
+      ref.read(localAuthServiceProvider).currentUserId;
   if (userId == null) return Stream.value(null);
   
   return ref.read(faithJourneyServiceProvider).streamFaithJourney(userId);
@@ -35,12 +37,12 @@ final faithJourneyStatsProvider = Provider<FaithJourneyStats?>((ref) {
 
 class FaithJourneyService {
   final LocalStorageService _localStorageService;
-  final MockBibleService _bibleService;
+  final BibleService _bibleService;
   final NotificationService _notificationService;
 
   FaithJourneyService({
     required LocalStorageService localStorageService,
-    required MockBibleService bibleService,
+    required BibleService bibleService,
     required NotificationService notificationService,
   })  : _localStorageService = localStorageService,
         _bibleService = bibleService,
@@ -108,87 +110,89 @@ class FaithJourneyService {
     ];
   }
 
-  /// Update faith journey with reading progress
+  /// Records that [userId] read [book] [chapter] ([versesCount] verses).
+  ///
+  /// Streaks count calendar days: reading several chapters on the same day
+  /// extends the streak only once; missing a day resets it to 1.
   Future<void> updateReadingProgress({
     required String userId,
     required String book,
     required int chapter,
-    required int verse,
+    int verse = 1,
     required int versesCount,
   }) async {
-    // Update reading stats in local storage
+    var journey = await getFaithJourney(userId);
+    if (journey == null) {
+      await createFaithJourney(userId);
+      journey = await getFaithJourney(userId);
+      if (journey == null) return;
+    }
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final last = journey.lastReadingDate;
+    final daysSinceLast = last == null
+        ? null
+        : today.difference(DateTime(last.year, last.month, last.day)).inDays;
+
+    var consecutiveDays = journey.consecutiveDays;
+    var totalDaysRead = journey.totalDaysRead;
+    var streakStart = journey.streakStartDate;
+    if (daysSinceLast == null || daysSinceLast > 1) {
+      consecutiveDays = 1; // first reading, or the streak was broken
+      totalDaysRead += 1;
+      streakStart = today;
+    } else if (daysSinceLast == 1) {
+      consecutiveDays += 1;
+      totalDaysRead += 1;
+    } // daysSinceLast == 0: already counted today
+    final longestStreak =
+        consecutiveDays > journey.longestStreak ? consecutiveDays : journey.longestStreak;
+
+    final chapterKey = '$book $chapter';
+    final isNewChapter = !journey.chaptersCompleted.contains(chapterKey);
+    final bookProgress = Map<String, int>.from(journey.bookProgress);
+    if (isNewChapter) bookProgress[book] = (bookProgress[book] ?? 0) + 1;
+
+    await _localStorageService.updateFaithJourney(userId, {
+      'versesRead': journey.versesRead + (isNewChapter ? versesCount : 0),
+      'chaptersRead': journey.chaptersRead + (isNewChapter ? 1 : 0),
+      'chaptersCompleted':
+          isNewChapter ? [...journey.chaptersCompleted, chapterKey] : journey.chaptersCompleted,
+      'bookProgress': bookProgress,
+      'consecutiveDays': consecutiveDays,
+      'longestStreak': longestStreak,
+      'totalDaysRead': totalDaysRead,
+      'lastReadingDate': now,
+      'streakStartDate': streakStart,
+      'readingHistory': [
+        ...journey.readingHistory.where((d) => now.difference(d).inDays < 400),
+        now,
+      ],
+    });
+
+    // Mirror the headline numbers on the user profile.
     final user = await _localStorageService.getUser(userId);
     if (user != null) {
-      final readingStats = user.readingStats;
-      final bookProgress = readingStats.bookProgress ?? {};
-      bookProgress[book] = (bookProgress[book] ?? 0) + versesCount;
-      
-      final lastRead = readingStats.lastRead ?? {};
-      lastRead[book] = DateTime.now();
-      
       await _localStorageService.updateUser(userId, {
-        'readingStats': {
-          ...readingStats.toJson(),
-          'bookProgress': bookProgress,
-          'lastRead': lastRead,
-          'totalVersesRead': (readingStats.totalVersesRead ?? 0) + versesCount,
-          'totalChaptersRead': (readingStats.totalChaptersRead ?? 0) + 1,
-        },
-        'lastReadingDate': DateTime.now(),
-        'consecutiveReadingDays': user.consecutiveReadingDays + 1,
-        'totalReadingDays': user.totalReadingDays + 1,
+        'lastReadingDate': now,
+        'consecutiveReadingDays': consecutiveDays,
+        'totalReadingDays': totalDaysRead,
       });
     }
-    
-    // Update faith journey
-    final journey = await getFaithJourney(userId);
-    if (journey != null) {
-      final today = DateTime.now();
-      final lastReadingDate = journey.lastReadingDate;
-      
-      int consecutiveDays = journey.consecutiveDays;
-      int longestStreak = journey.longestStreak;
-      
-      if (lastReadingDate != null) {
-        final lastDate = DateTime(
-          lastReadingDate.year,
-          lastReadingDate.month,
-          lastReadingDate.day,
-        );
-        final todayDate = DateTime(today.year, today.month, today.day);
-        final diff = todayDate.difference(lastDate).inDays;
-        
-        if (diff == 1) {
-          consecutiveDays = journey.consecutiveDays + 1;
-          if (consecutiveDays > longestStreak) {
-            longestStreak = consecutiveDays;
-          }
-        } else if (diff > 1) {
-          consecutiveDays = 1;
-        }
-      } else {
-        consecutiveDays = 1;
-      }
-      
-      await _localStorageService.updateFaithJourney(userId, {
-        'versesRead': journey.versesRead + versesCount,
-        'chaptersRead': journey.chaptersRead + 1,
-        'consecutiveDays': consecutiveDays,
-        'longestStreak': longestStreak,
-        'lastReadingDate': today,
-        'totalDaysRead': journey.totalDaysRead + 1,
-        'lastUpdatedAt': DateTime.now(),
-      });
-    } else {
-      // Create faith journey if it doesn't exist
-      await createFaithJourney(userId);
-    }
-    
-    // Check role progression
+
     await _checkRoleProgression(userId);
-    
-    // Check and send notifications
-    await _checkAndSendNotifications(userId);
+    try {
+      await _checkAndSendNotifications(userId);
+    } catch (_) {
+      // Notifications are best-effort (unsupported on some platforms).
+    }
+  }
+
+  /// Whether [userId] has already marked [book] [chapter] as read.
+  Future<bool> isChapterCompleted(String userId, String book, int chapter) async {
+    final journey = await getFaithJourney(userId);
+    return journey?.chaptersCompleted.contains('$book $chapter') ?? false;
   }
 
   /// Check role progression
@@ -198,47 +202,23 @@ class FaithJourneyService {
     
     if (journey == null || user == null) return;
     
-    final currentRole = journey.currentRole;
-    UserRole? nextRole;
-    bool shouldPromote = false;
-    
-    switch (currentRole) {
-      case UserRole.believer:
-        if (journey.consecutiveDays >= 7) {
-          nextRole = UserRole.preacher;
-          shouldPromote = true;
-        }
-        break;
-      case UserRole.preacher:
-        if (journey.consecutiveDays >= 30) {
-          nextRole = UserRole.shepherd;
-          shouldPromote = true;
-        }
-        break;
-      case UserRole.shepherd:
-        if (journey.consecutiveDays >= 365) {
-          nextRole = UserRole.bishop;
-          shouldPromote = true;
-        }
-        break;
-      case UserRole.bishop:
-        break;
-    }
-    
+    // Streak-based promotion only: Preacher (30 days) and Shepherd (365 days).
+    // Bishop needs 1000+ followers or a verified purchase (see promoteToBishop).
+    final nextRole = getNextRole(journey);
+    final requiredDays = nextRole?.requirements['days'] as int?;
+    final shouldPromote =
+        requiredDays != null && journey.consecutiveDays >= requiredDays;
+
     if (shouldPromote && nextRole != null) {
       // Update user role
-      await _localStorageService.updateUser(userId, {
-        'role': nextRole.name,
-        'updatedAt': DateTime.now(),
-      });
+      await _localStorageService.updateUser(userId, {'role': nextRole});
       
       // Update faith journey
       await _localStorageService.updateFaithJourney(userId, {
-        'currentRole': nextRole.name,
+        'currentRole': nextRole,
         'hasReached${nextRole.name.capitalize()}': true,
-        'updatedAt': DateTime.now(),
       });
-      
+
       // Send notification
       await _notificationService.sendNotification(
         userId: userId,
@@ -459,30 +439,27 @@ class FaithJourneyService {
       };
     }
     
-    final nextProgress = journey.progressList.firstWhere(
-      (p) => p.targetRole == nextRole,
-      orElse: () => null,
-    );
-    
-    if (nextProgress == null) {
+    final requiredDays = nextRole.requirements['days'] as int?;
+    if (requiredDays == null) {
+      // Bishop: measured in followers rather than reading days.
+      const requiredFollowers = 1000;
       return {
         'hasNextRole': true,
         'nextRole': nextRole.displayName,
-        'progress': 0.0,
-        'current': 0,
-        'required': nextRole.requirements['days'] ?? 0,
+        'progress': (journey.followerCount / requiredFollowers).clamp(0.0, 1.0),
+        'current': journey.followerCount,
+        'required': requiredFollowers,
+        'description': nextRole.requirements['description'],
       };
     }
-    
-    final progress = nextProgress.currentProgress / nextProgress.requiredProgress;
-    
+
     return {
       'hasNextRole': true,
       'nextRole': nextRole.displayName,
-      'progress': progress.clamp(0.0, 1.0),
-      'current': nextProgress.currentProgress,
-      'required': nextProgress.requiredProgress,
-      'description': nextProgress.description,
+      'progress': (journey.consecutiveDays / requiredDays).clamp(0.0, 1.0),
+      'current': journey.consecutiveDays,
+      'required': requiredDays,
+      'description': nextRole.requirements['description'],
     };
   }
 
@@ -508,20 +485,12 @@ class FaithJourneyService {
             ))
         .toList();
     
-    // Calculate days to next role
-    int daysToNextRole = 0;
-    if (nextRole != null) {
-      final nextRoleProgress = journey.progressList.firstWhere(
-        (p) => p.targetRole == nextRole,
-        orElse: () => null,
-      );
-      
-      if (nextRoleProgress != null) {
-        daysToNextRole = nextRoleProgress.requiredProgress - 
-            nextRoleProgress.currentProgress;
-      }
-    }
-    
+    // Calculate days to next role (0 for Bishop, which isn't streak-based)
+    final requiredDays = nextRole?.requirements['days'] as int?;
+    final daysToNextRole = requiredDays == null
+        ? 0
+        : (requiredDays - journey.consecutiveDays).clamp(0, requiredDays);
+
     // Get available titles
     List<String> availableTitles = [];
     if (currentRole == UserRole.bishop) {
@@ -541,7 +510,7 @@ class FaithJourneyService {
       currentRole: currentRole,
       currentRoleDisplayName: currentRole.displayName,
       daysToNextRole: daysToNextRole,
-      progressToNextRole: progressToNext['progress'] ?? 0.0,
+      progressToNextRole: (progressToNext['progress'] as num?)?.toDouble() ?? 0.0,
       nextRoleName: nextRole?.displayName ?? currentRole.displayName,
       recentMilestones: recentMilestones.take(5).toList(),
       roleProgress: roleProgress,
@@ -595,37 +564,20 @@ class FaithJourneyService {
   Future<void> recordReadingSession(ReadingSession session) async {
     final habit = await getReadingHabit(session.userId);
     
-    if (habit != null) {
-      final recentSessions = [...habit.recentSessions, session];
-      if (recentSessions.length > 10) {
-        recentSessions.removeAt(0);
-      }
-      
-      await _localStorageService.updateReadingHabit(session.userId, {
-        'recentSessions': recentSessions.map((s) => s.toJson()).toList(),
-        'updatedAt': DateTime.now(),
-      });
-    } else {
-      // Create reading habit if it doesn't exist
-      final newHabit = ReadingHabit(
-        userId: session.userId,
-        preferredHours: [session.startedAt.hour],
-        preferredDays: [session.startedAt.weekday - 1],
-        notificationsEnabled: true,
-        recentSessions: [session],
-        averageReadsPerDay: 1.0,
-        averageDurationMinutes: session.endedAt != null
-            ? session.endedAt!.difference(session.startedAt).inMinutes
-            : 10,
-        updatedAt: DateTime.now(),
-      );
-      
-      // For now, store in user preferences
-      await _localStorageService.updateUser(session.userId, {
-        'readingHours': [session.startedAt.hour],
-        'readingDays': [session.startedAt.weekday - 1],
-      });
-    }
+    final recent = [...?habit?.recentSessions, session];
+    final trimmed = recent.length > 10 ? recent.sublist(recent.length - 10) : recent;
+    final hours = {...?habit?.preferredHours, session.startedAt.hour}.toList()..sort();
+    final days = {...?habit?.preferredDays, session.startedAt.weekday % 7}.toList()..sort();
+
+    await _localStorageService.updateReadingHabit(session.userId, {
+      'recentSessions': trimmed,
+      'preferredHours': hours,
+      'preferredDays': days,
+      'averageDurationMinutes': trimmed.isEmpty
+          ? 0
+          : trimmed.map((s) => s.durationMinutes).reduce((a, b) => a + b) ~/ trimmed.length,
+    });
+    await _localStorageService.recordReadingSession(session);
   }
 
   /// Get preferred reading times
@@ -660,10 +612,8 @@ class FaithJourneyService {
     final journey = await getFaithJourney(userId);
     if (journey == null) return {};
     
-    final streakStart = journey.streakStartDate != null
-        ? DateTime.fromMillisecondsSinceEpoch(journey.streakStartDate!)
-        : null;
-    
+    final streakStart = journey.streakStartDate;
+
     return {
       'consecutiveDays': journey.consecutiveDays,
       'longestStreak': journey.longestStreak,

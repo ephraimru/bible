@@ -3,8 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../services/local_auth_service.dart';
-import '../services/local_storage_service.dart';
-import '../services/mock_bible_service.dart';
+import '../services/bible_service.dart';
 import '../services/faith_journey_service.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -21,36 +20,31 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     _initializeApp();
   }
 
+  String? _error;
+
   Future<void> _initializeApp() async {
-    // Initialize mock Bible data
-    final mockBibleService = ref.read(mockBibleServiceProvider);
-    await mockBibleService.initialize();
-    
-    // Wait for auth state to be determined
-    await Future.delayed(const Duration(seconds: 2));
-    
-    final authService = ref.read(localAuthServiceProvider);
-    final userId = authService.currentUserId;
-    
-    if (userId != null) {
-      // User is logged in, check if faith journey exists
-      final faithJourneyService = ref.read(faithJourneyServiceProvider);
-      final journey = await faithJourneyService.getFaithJourney(userId);
-      
-      if (journey == null) {
-        // Create faith journey for new user
-        await faithJourneyService.createFaithJourney(userId);
+    setState(() => _error = null);
+    try {
+      // Load the bundled KJV while the splash is visible (min. ~1s so it
+      // doesn't just flash).
+      await Future.wait([
+        ref.read(bibleServiceProvider).initialize(),
+        Future<void>.delayed(const Duration(milliseconds: 900)),
+      ]);
+
+      final userId = ref.read(localAuthServiceProvider).currentUserId;
+      if (userId != null) {
+        final faithJourneyService = ref.read(faithJourneyServiceProvider);
+        if (await faithJourneyService.getFaithJourney(userId) == null) {
+          await faithJourneyService.createFaithJourney(userId);
+        }
       }
-      
-      // Navigate to home
-      if (mounted) {
-        context.go('/home');
-      }
-    } else {
-      // User is not logged in, navigate to welcome
-      if (mounted) {
-        context.go('/welcome');
-      }
+
+      if (!mounted) return;
+      context.go(userId != null ? '/home' : '/welcome');
+    } catch (e, st) {
+      debugPrint('Start-up failed: $e\n$st');
+      if (mounted) setState(() => _error = 'Could not load the Bible. Please try again.');
     }
   }
 
@@ -73,7 +67,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -105,19 +99,23 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
               ),
               const SizedBox(height: 48),
               
-              // Loading indicator
-              const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
+              // Loading indicator, or an error with a retry button
+              if (_error == null)
+                const CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                )
+              else ...[
+                Text(_error!, style: const TextStyle(color: Colors.white)),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: _initializeApp,
+                  child: const Text('Retry'),
+                ),
+              ],
             ],
           ),
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 }

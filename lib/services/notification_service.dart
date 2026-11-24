@@ -16,6 +16,12 @@ class NotificationService {
   final LocalStorageService _localStorageService;
   final FlutterLocalNotificationsPlugin _notificationsPlugin;
 
+  /// False until [initialize] succeeds (it is skipped on web). Every plugin
+  /// call is a no-op until then, so callers never crash on unsupported
+  /// platforms.
+  bool _initialized = false;
+  bool get isInitialized => _initialized;
+
   NotificationService({
     required LocalStorageService localStorageService,
   })  : _localStorageService = localStorageService,
@@ -51,6 +57,8 @@ class NotificationService {
       },
     );
     
+    _initialized = true;
+
     // Request permissions
     await _requestPermissions();
   }
@@ -152,7 +160,8 @@ class NotificationService {
     );
     
     final payload = data != null ? _buildPayload(data) : null;
-    
+    if (!_initialized) return;
+
     await _notificationsPlugin.show(
       id,
       title,
@@ -177,7 +186,6 @@ class NotificationService {
     Map<String, dynamic>? data,
   }) async {
     // For local mode, we just show the notification
-    // In Firebase mode, we would also store it in Firestore
     
     // Show local notification
     await showNotification(
@@ -219,7 +227,8 @@ class NotificationService {
     );
     
     final payload = data != null ? _buildPayload(data) : null;
-    
+    if (!_initialized) return;
+
     await _notificationsPlugin.zonedSchedule(
       id,
       title,
@@ -303,16 +312,19 @@ class NotificationService {
 
   /// Cancel a notification
   Future<void> cancelNotification(int id) async {
+    if (!_initialized) return;
     await _notificationsPlugin.cancel(id);
   }
 
   /// Cancel all notifications
   Future<void> cancelAllNotifications() async {
+    if (!_initialized) return;
     await _notificationsPlugin.cancelAll();
   }
 
   /// Get pending notifications
   Future<List<PendingNotificationRequest>> getPendingNotifications() async {
+    if (!_initialized) return const [];
     return _notificationsPlugin.pendingNotificationRequests();
   }
 
@@ -525,9 +537,10 @@ class NotificationService {
     required String userId,
     required Map<String, bool> preferences,
   }) async {
+    final user = await _localStorageService.getUser(userId);
     await _localStorageService.updateUser(userId, {
-      'preferences': {'notifications': preferences},
-      'updatedAt': DateTime.now(),
+      // Merge so other preferences (reminder time, sounds, ...) are kept.
+      'preferences': {...?user?.preferences, 'notifications': preferences},
     });
   }
 

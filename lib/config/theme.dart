@@ -26,7 +26,7 @@ class AppTheme {
         foregroundColor: Colors.black,
         iconTheme: IconThemeData(color: Colors.black),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         elevation: 2,
         shadowColor: Colors.black.withOpacity(0.1),
         shape: RoundedRectangleBorder(
@@ -111,7 +111,7 @@ class AppTheme {
         selectedTileColor: Colors.blue,
         selectedColor: Colors.white,
       ),
-      dialogTheme: const DialogTheme(
+      dialogTheme: const DialogThemeData(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(16)),
         ),
@@ -233,7 +233,7 @@ class AppTheme {
         foregroundColor: Colors.white,
         iconTheme: IconThemeData(color: Colors.white),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         elevation: 2,
         shadowColor: Colors.black.withOpacity(0.3),
         color: Colors.grey.shade800,
@@ -288,7 +288,7 @@ class AppTheme {
         type: BottomNavigationBarType.fixed,
         elevation: 8,
       ),
-      dialogTheme: const DialogTheme(
+      dialogTheme: const DialogThemeData(
         backgroundColor: Colors.grey,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(16)),

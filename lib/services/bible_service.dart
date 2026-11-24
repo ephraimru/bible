@@ -1,519 +1,285 @@
 import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/verse_model.dart';
-import 'database_service.dart';
 
-// Bible Service Provider
-final mockBibleServiceProvider = Provider<BibleService>((ref) {
-  return BibleService(
-    databaseService: ref.read(localStorageServiceProvider),
-  );
-});
+final bibleServiceProvider = Provider<BibleService>((ref) => BibleService());
 
+/// The full King James Version, bundled offline in `assets/data/bible_kjv.json`.
+///
+/// Asset layout:
+/// ```json
+/// { "books": [ { "name": "Genesis", "abbreviation": "Gen", "testament": 1,
+///                "chapters": [ ["In the beginning ...", ...], ... ] } ],
+///   "daily_verses": [ { "book": "John", "chapter": 3, "verse": 16,
+///                       "endVerse": 16, "theme": "Love",
+///                       "backgroundColor": "0xFF4CAF50" } ] }
+/// ```
 class BibleService {
-  final DatabaseService _databaseService;
-  
-  // Cache for Bible data
-  Map<String, List<BibleBook>> _bibleBooksCache = {};
-  Map<String, BibleChapter> _bibleChaptersCache = {};
-  
-  BibleService({
-    required DatabaseService databaseService,
-  }) : _databaseService = databaseService;
+  BibleService({AssetBundle? bundle, this.assetPath = 'assets/data/bible_kjv.json'})
+      : _bundle = bundle ?? rootBundle;
 
-  // ============ BIBLE BOOKS ============
+  static const String translation = 'KJV';
 
-  // Get all Bible books
-  Future<List<BibleBook>> getBibleBooks() async {
-    if (_bibleBooksCache.isNotEmpty) {
-      return _bibleBooksCache.values.first;
-    }
-    
-    // Try to get from assets
-    try {
-      final data = await rootBundle.loadString('assets/data/bible_books.json');
-      final jsonData = json.decode(data) as List;
-      final books = jsonData
-          .map((bookJson) => BibleBook.fromJson(bookJson))
-          .toList();
-      
-      _bibleBooksCache['kjv'] = books;
-      return books;
-    } catch (e) {
-      // Return default books
-      return _getDefaultBibleBooks();
-    }
+  final AssetBundle _bundle;
+  final String assetPath;
+
+  Future<void>? _loading;
+  final List<BibleBook> _books = [];
+  final Map<String, List<List<String>>> _text = {};
+  final Map<String, String> _bookLookup = {}; // lower-case name/abbrev -> name
+  final List<Map<String, dynamic>> _dailyVerses = [];
+
+  bool get isLoaded => _books.isNotEmpty;
+
+  /// Loads and parses the Bible once. Safe to call repeatedly.
+  Future<void> initialize() => _loading ??= _load();
+
+  Future<void> _load() async {
+    final raw = await _bundle.loadString(assetPath, cache: false);
+    // Parsing ~4 MB of JSON off the UI thread keeps the splash screen smooth.
+    final data = await compute(_decode, raw);
+    loadFromJson(data);
   }
 
-  // Get default Bible books
-  List<BibleBook> _getDefaultBibleBooks() {
+  static Map<String, dynamic> _decode(String raw) =>
+      jsonDecode(raw) as Map<String, dynamic>;
+
+  /// Populates the service from already-decoded asset JSON (also used by tests).
+  @visibleForTesting
+  void loadFromJson(Map<String, dynamic> data) {
+    _books.clear();
+    _text.clear();
+    _bookLookup.clear();
+    _dailyVerses.clear();
+
+    final books = data['books'] as List;
+    for (var i = 0; i < books.length; i++) {
+      final b = books[i] as Map<String, dynamic>;
+      final name = b['name'] as String;
+      final abbreviation = b['abbreviation'] as String;
+      final chapters = (b['chapters'] as List)
+          .map((c) => (c as List).cast<String>())
+          .toList(growable: false);
+      _text[name] = chapters;
+      _books.add(BibleBook(
+        name: name,
+        abbreviation: abbreviation,
+        chapters: chapters.length,
+        testament: b['testament'] as int,
+        order: i + 1,
+      ));
+      _bookLookup[name.toLowerCase()] = name;
+      _bookLookup[name.toLowerCase().replaceAll(' ', '')] = name;
+      _bookLookup[abbreviation.toLowerCase()] = name;
+    }
+    // Common alternative names.
+    _bookLookup['psalm'] = 'Psalms';
+    _bookLookup['ps'] = 'Psalms';
+    _bookLookup['song of songs'] = 'Song of Solomon';
+    _bookLookup['revelations'] = 'Revelation';
+
+    for (final d in (data['daily_verses'] as List? ?? const [])) {
+      _dailyVerses.add(Map<String, dynamic>.from(d as Map));
+    }
+    _loading ??= Future.value();
+  }
+
+  // ------------------------------------------------------------------ ids
+
+  /// Stable, readable verse id, e.g. `John.3.16` or `1 John.4.8`.
+  static String verseId(String book, int chapter, int verse) => '$book.$chapter.$verse';
+
+  /// Parses an id created by [verseId]. Also accepts the legacy
+  /// `Book_chapter:verse` format.
+  static ({String book, int chapter, int verse})? parseVerseId(String id) {
+    final match = RegExp(r'^(.+)[._](\d+)[.:](\d+)$').firstMatch(id);
+    if (match == null) return null;
+    return (
+      book: match.group(1)!,
+      chapter: int.parse(match.group(2)!),
+      verse: int.parse(match.group(3)!),
+    );
+  }
+
+  // ---------------------------------------------------------------- books
+
+  Future<List<BibleBook>> getBibleBooks() async {
+    await initialize();
+    return List.unmodifiable(_books);
+  }
+
+  Future<BibleBook?> getBook(String name) async {
+    await initialize();
+    final resolved = resolveBookName(name);
+    if (resolved == null) return null;
+    return _books.firstWhere((b) => b.name == resolved);
+  }
+
+  /// Resolves a book name or abbreviation ("John", "john", "Gen", "1 Sam",
+  /// "1sam", "Psalm") to its canonical name. Returns null if unknown.
+  String? resolveBookName(String input) {
+    final key = input.trim().toLowerCase();
+    return _bookLookup[key] ?? _bookLookup[key.replaceAll(' ', '')];
+  }
+
+  // --------------------------------------------------------------- verses
+
+  VerseModel _verse(String book, int chapter, int verse, String text) => VerseModel(
+        id: verseId(book, chapter, verse),
+        reference: '$book $chapter:$verse',
+        text: text,
+        book: book,
+        chapter: chapter,
+        verse: verse,
+        translation: translation,
+      );
+
+  Future<int> getChapterCount(String book) async {
+    await initialize();
+    final name = resolveBookName(book);
+    return name == null ? 0 : _text[name]!.length;
+  }
+
+  Future<List<VerseModel>> getVersesByChapter(String book, int chapter) async {
+    await initialize();
+    final name = resolveBookName(book);
+    if (name == null) return const [];
+    final chapters = _text[name]!;
+    if (chapter < 1 || chapter > chapters.length) return const [];
+    final verses = chapters[chapter - 1];
     return [
-      // Old Testament
-      const BibleBook(name: 'Genesis', abbreviation: 'Gen', chapters: 50, testament: 1, order: 1),
-      const BibleBook(name: 'Exodus', abbreviation: 'Exod', chapters: 40, testament: 1, order: 2),
-      const BibleBook(name: 'Leviticus', abbreviation: 'Lev', chapters: 27, testament: 1, order: 3),
-      const BibleBook(name: 'Numbers', abbreviation: 'Num', chapters: 36, testament: 1, order: 4),
-      const BibleBook(name: 'Deuteronomy', abbreviation: 'Deut', chapters: 34, testament: 1, order: 5),
-      const BibleBook(name: 'Joshua', abbreviation: 'Josh', chapters: 24, testament: 1, order: 6),
-      const BibleBook(name: 'Judges', abbreviation: 'Judg', chapters: 21, testament: 1, order: 7),
-      const BibleBook(name: 'Ruth', abbreviation: 'Ruth', chapters: 4, testament: 1, order: 8),
-      const BibleBook(name: '1 Samuel', abbreviation: '1Sam', chapters: 31, testament: 1, order: 9),
-      const BibleBook(name: '2 Samuel', abbreviation: '2Sam', chapters: 24, testament: 1, order: 10),
-      const BibleBook(name: '1 Kings', abbreviation: '1Kgs', chapters: 22, testament: 1, order: 11),
-      const BibleBook(name: '2 Kings', abbreviation: '2Kgs', chapters: 25, testament: 1, order: 12),
-      const BibleBook(name: '1 Chronicles', abbreviation: '1Chr', chapters: 29, testament: 1, order: 13),
-      const BibleBook(name: '2 Chronicles', abbreviation: '2Chr', chapters: 36, testament: 1, order: 14),
-      const BibleBook(name: 'Ezra', abbreviation: 'Ezra', chapters: 10, testament: 1, order: 15),
-      const BibleBook(name: 'Nehemiah', abbreviation: 'Neh', chapters: 13, testament: 1, order: 16),
-      const BibleBook(name: 'Esther', abbreviation: 'Esth', chapters: 10, testament: 1, order: 17),
-      const BibleBook(name: 'Job', abbreviation: 'Job', chapters: 42, testament: 1, order: 18),
-      const BibleBook(name: 'Psalms', abbreviation: 'Ps', chapters: 150, testament: 1, order: 19),
-      const BibleBook(name: 'Proverbs', abbreviation: 'Prov', chapters: 31, testament: 1, order: 20),
-      const BibleBook(name: 'Ecclesiastes', abbreviation: 'Eccl', chapters: 12, testament: 1, order: 21),
-      const BibleBook(name: 'Song of Solomon', abbreviation: 'Song', chapters: 8, testament: 1, order: 22),
-      const BibleBook(name: 'Isaiah', abbreviation: 'Isa', chapters: 66, testament: 1, order: 23),
-      const BibleBook(name: 'Jeremiah', abbreviation: 'Jer', chapters: 52, testament: 1, order: 24),
-      const BibleBook(name: 'Lamentations', abbreviation: 'Lam', chapters: 5, testament: 1, order: 25),
-      const BibleBook(name: 'Ezekiel', abbreviation: 'Ezek', chapters: 48, testament: 1, order: 26),
-      const BibleBook(name: 'Daniel', abbreviation: 'Dan', chapters: 12, testament: 1, order: 27),
-      const BibleBook(name: 'Hosea', abbreviation: 'Hos', chapters: 14, testament: 1, order: 28),
-      const BibleBook(name: 'Joel', abbreviation: 'Joel', chapters: 3, testament: 1, order: 29),
-      const BibleBook(name: 'Amos', abbreviation: 'Amos', chapters: 9, testament: 1, order: 30),
-      const BibleBook(name: 'Obadiah', abbreviation: 'Obad', chapters: 1, testament: 1, order: 31),
-      const BibleBook(name: 'Jonah', abbreviation: 'Jonah', chapters: 4, testament: 1, order: 32),
-      const BibleBook(name: 'Micah', abbreviation: 'Mic', chapters: 7, testament: 1, order: 33),
-      const BibleBook(name: 'Nahum', abbreviation: 'Nah', chapters: 3, testament: 1, order: 34),
-      const BibleBook(name: 'Habakkuk', abbreviation: 'Hab', chapters: 3, testament: 1, order: 35),
-      const BibleBook(name: 'Zephaniah', abbreviation: 'Zeph', chapters: 3, testament: 1, order: 36),
-      const BibleBook(name: 'Haggai', abbreviation: 'Hag', chapters: 2, testament: 1, order: 37),
-      const BibleBook(name: 'Zechariah', abbreviation: 'Zech', chapters: 14, testament: 1, order: 38),
-      const BibleBook(name: 'Malachi', abbreviation: 'Mal', chapters: 4, testament: 1, order: 39),
-      
-      // New Testament
-      const BibleBook(name: 'Matthew', abbreviation: 'Matt', chapters: 28, testament: 2, order: 40),
-      const BibleBook(name: 'Mark', abbreviation: 'Mark', chapters: 16, testament: 2, order: 41),
-      const BibleBook(name: 'Luke', abbreviation: 'Luke', chapters: 24, testament: 2, order: 42),
-      const BibleBook(name: 'John', abbreviation: 'John', chapters: 21, testament: 2, order: 43),
-      const BibleBook(name: 'Acts', abbreviation: 'Acts', chapters: 28, testament: 2, order: 44),
-      const BibleBook(name: 'Romans', abbreviation: 'Rom', chapters: 16, testament: 2, order: 45),
-      const BibleBook(name: '1 Corinthians', abbreviation: '1Cor', chapters: 16, testament: 2, order: 46),
-      const BibleBook(name: '2 Corinthians', abbreviation: '2Cor', chapters: 13, testament: 2, order: 47),
-      const BibleBook(name: 'Galatians', abbreviation: 'Gal', chapters: 6, testament: 2, order: 48),
-      const BibleBook(name: 'Ephesians', abbreviation: 'Eph', chapters: 6, testament: 2, order: 49),
-      const BibleBook(name: 'Philippians', abbreviation: 'Phil', chapters: 4, testament: 2, order: 50),
-      const BibleBook(name: 'Colossians', abbreviation: 'Col', chapters: 4, testament: 2, order: 51),
-      const BibleBook(name: '1 Thessalonians', abbreviation: '1Thess', chapters: 5, testament: 2, order: 52),
-      const BibleBook(name: '2 Thessalonians', abbreviation: '2Thess', chapters: 3, testament: 2, order: 53),
-      const BibleBook(name: '1 Timothy', abbreviation: '1Tim', chapters: 6, testament: 2, order: 54),
-      const BibleBook(name: '2 Timothy', abbreviation: '2Tim', chapters: 4, testament: 2, order: 55),
-      const BibleBook(name: 'Titus', abbreviation: 'Titus', chapters: 3, testament: 2, order: 56),
-      const BibleBook(name: 'Philemon', abbreviation: 'Phlm', chapters: 1, testament: 2, order: 57),
-      const BibleBook(name: 'Hebrews', abbreviation: 'Heb', chapters: 13, testament: 2, order: 58),
-      const BibleBook(name: 'James', abbreviation: 'Jas', chapters: 5, testament: 2, order: 59),
-      const BibleBook(name: '1 Peter', abbreviation: '1Pet', chapters: 5, testament: 2, order: 60),
-      const BibleBook(name: '2 Peter', abbreviation: '2Pet', chapters: 3, testament: 2, order: 61),
-      const BibleBook(name: '1 John', abbreviation: '1John', chapters: 5, testament: 2, order: 62),
-      const BibleBook(name: '2 John', abbreviation: '2John', chapters: 1, testament: 2, order: 63),
-      const BibleBook(name: '3 John', abbreviation: '3John', chapters: 1, testament: 2, order: 64),
-      const BibleBook(name: 'Jude', abbreviation: 'Jude', chapters: 1, testament: 2, order: 65),
-      const BibleBook(name: 'Revelation', abbreviation: 'Rev', chapters: 22, testament: 2, order: 66),
+      for (var i = 0; i < verses.length; i++) _verse(name, chapter, i + 1, verses[i]),
     ];
   }
 
-  // Get Bible book by name
-  Future<BibleBook?> getBibleBook(String name) async {
-    final books = await getBibleBooks();
-    return books.firstWhere(
-      (book) => book.name.toLowerCase() == name.toLowerCase() ||
-          book.abbreviation.toLowerCase() == name.toLowerCase(),
-      orElse: () => null,
-    );
-  }
-
-  // Get Bible book by order
-  Future<BibleBook?> getBibleBookByOrder(int order) async {
-    final books = await getBibleBooks();
-    return books.firstWhere(
-      (book) => book.order == order,
-      orElse: () => null,
-    );
-  }
-
-  // ============ BIBLE CHAPTERS AND VERSES ============
-
-  // Get chapter from database
-  Future<BibleChapter?> getChapter(String book, int chapter) async {
-    final cacheKey = '$book:$chapter';
-    if (_bibleChaptersCache.containsKey(cacheKey)) {
-      return _bibleChaptersCache[cacheKey]!;
-    }
-    
-    final verses = await _databaseService.getVersesByChapter(book, chapter);
-    
-    if (verses.isEmpty) {
-      return null;
-    }
-    
-    final bibleChapter = BibleChapter(
-      book: book,
-      chapter: chapter,
-      verses: verses,
-      totalVerses: verses.length,
-    );
-    
-    _bibleChaptersCache[cacheKey] = bibleChapter;
-    return bibleChapter;
-  }
-
-  // Get verse by reference
-  Future<VerseModel?> getVerse(String reference) async {
-    // Parse reference (e.g., "John 3:16", "Genesis 1:1")
-    final parts = reference.split(' ');
-    if (parts.length < 2) return null;
-    
-    final bookName = parts[0];
-    final chapterVerse = parts[1].split(':');
-    
-    if (chapterVerse.length < 2) return null;
-    
-    final chapter = int.tryParse(chapterVerse[0]);
-    final verse = int.tryParse(chapterVerse[1]);
-    
-    if (chapter == null || verse == null) return null;
-    
-    final verses = await _databaseService.getVersesByChapter(bookName, chapter);
-    return verses.firstWhere(
-      (v) => v.verse == verse,
-      orElse: () => null,
-    );
-  }
-
-  // Get verses by reference range
-  Future<List<VerseModel>> getVersesByRange(String startRef, String endRef) async {
-    final startVerse = await getVerse(startRef);
-    final endVerse = await getVerse(endRef);
-    
-    if (startVerse == null || endVerse == null) {
-      return [];
-    }
-    
-    if (startVerse.book != endVerse.book ||
-        startVerse.chapter != endVerse.chapter) {
-      // Handle multi-chapter range
-      final verses = <VerseModel>[];
-      
-      if (startVerse.book == endVerse.book) {
-        // Same book, different chapters
-        for (int chapter = startVerse.chapter; chapter <= endVerse.chapter; chapter++) {
-          final chapterVerses = await _databaseService.getVersesByChapter(
-            startVerse.book,
-            chapter,
-          );
-          
-          if (chapter == startVerse.chapter) {
-            verses.addAll(
-              chapterVerses.where((v) => v.verse >= startVerse.verse),
-            );
-          } else if (chapter == endVerse.chapter) {
-            verses.addAll(
-              chapterVerses.where((v) => v.verse <= endVerse.verse),
-            );
-          } else {
-            verses.addAll(chapterVerses);
-          }
-        }
+  Future<List<VerseModel>> getVersesByBook(String book) async {
+    await initialize();
+    final name = resolveBookName(book);
+    if (name == null) return const [];
+    final result = <VerseModel>[];
+    final chapters = _text[name]!;
+    for (var c = 0; c < chapters.length; c++) {
+      for (var v = 0; v < chapters[c].length; v++) {
+        result.add(_verse(name, c + 1, v + 1, chapters[c][v]));
       }
-      
-      return verses;
     }
-    
-    // Same chapter
-    final chapterVerses = await _databaseService.getVersesByChapter(
-      startVerse.book,
-      startVerse.chapter,
-    );
-    
-    return chapterVerses
-        .where((v) => v.verse >= startVerse.verse && v.verse <= endVerse.verse)
-        .toList();
+    return result;
   }
 
-  // ============ SEARCH ============
+  Future<VerseModel?> getVerse(String book, int chapter, int verse) async {
+    await initialize();
+    final name = resolveBookName(book);
+    if (name == null) return null;
+    final chapters = _text[name]!;
+    if (chapter < 1 || chapter > chapters.length) return null;
+    final verses = chapters[chapter - 1];
+    if (verse < 1 || verse > verses.length) return null;
+    return _verse(name, chapter, verse, verses[verse - 1]);
+  }
 
-  // Search verses
+  Future<VerseModel?> getVerseById(String id) async {
+    final parsed = parseVerseId(Uri.decodeComponent(id));
+    if (parsed == null) return null;
+    return getVerse(parsed.book, parsed.chapter, parsed.verse);
+  }
+
+  // --------------------------------------------------------------- search
+
+  static final RegExp _referencePattern =
+      RegExp(r'^\s*((?:[1-3]\s*)?[a-zA-Z][a-zA-Z ]*?)\.?\s+(\d+)(?:\s*:\s*(\d+)(?:\s*-\s*(\d+))?)?\s*$');
+
+  /// Searches the whole Bible (or one [book]).
+  ///
+  /// A query that looks like a reference ("John 3:16", "Ps 23", "1 Cor 13:4-7")
+  /// returns those verses; anything else is a case-insensitive phrase search.
   Future<List<VerseModel>> searchVerses({
     String? query,
     String? book,
     int? chapter,
     int limit = 50,
   }) async {
-    return _databaseService.searchVerses(
-      query: query,
-      book: book,
-      chapter: chapter,
-      limit: limit,
-    );
-  }
+    await initialize();
+    final q = query?.trim() ?? '';
 
-  // Advanced search with filters
-  Future<List<VerseModel>> advancedSearch({
-    String? query,
-    List<String>? books,
-    List<int>? chapters,
-    int? minVerse,
-    int? maxVerse,
-    int limit = 50,
-  }) async {
-    final allVerses = <VerseModel>[];
-    
-    if (books != null && books.isNotEmpty) {
-      for (final book in books) {
-        final bookChapters = chapters ?? List.generate(150, (i) => i + 1);
-        
-        for (final chapter in bookChapters) {
-          final verses = await _databaseService.getVersesByChapter(book, chapter);
-          allVerses.addAll(verses);
+    if (q.isNotEmpty) {
+      final reference = await _searchReference(q, limit);
+      if (reference != null) return reference;
+    }
+
+    final needle = q.toLowerCase();
+    final bookName = book == null ? null : resolveBookName(book);
+    final results = <VerseModel>[];
+    for (final b in _books) {
+      if (bookName != null && b.name != bookName) continue;
+      final chapters = _text[b.name]!;
+      for (var c = 0; c < chapters.length; c++) {
+        if (chapter != null && c + 1 != chapter) continue;
+        final verses = chapters[c];
+        for (var v = 0; v < verses.length; v++) {
+          if (needle.isEmpty || verses[v].toLowerCase().contains(needle)) {
+            results.add(_verse(b.name, c + 1, v + 1, verses[v]));
+            if (results.length >= limit) return results;
+          }
         }
       }
-    } else {
-      // Get all verses (limited)
-      final all = await _databaseService.getAllVerses();
-      allVerses.addAll(all.take(1000));
     }
-    
-    // Filter by chapter
-    var filtered = allVerses;
-    if (chapters != null && chapters!.isNotEmpty) {
-      filtered = filtered.where((v) => chapters!.contains(v.chapter)).toList();
-    }
-    
-    // Filter by verse number
-    if (minVerse != null) {
-      filtered = filtered.where((v) => v.verse >= minVerse!).toList();
-    }
-    if (maxVerse != null) {
-      filtered = filtered.where((v) => v.verse <= maxVerse!).toList();
-    }
-    
-    // Filter by query
-    if (query != null && query!.isNotEmpty) {
-      filtered = filtered
-          .where((v) => v.text.toLowerCase().contains(query!.toLowerCase()))
-          .toList();
-    }
-    
-    return filtered.take(limit).toList();
+    return results;
   }
 
-  // ============ DAILY VERSE ============
+  Future<List<VerseModel>?> _searchReference(String q, int limit) async {
+    final m = _referencePattern.firstMatch(q);
+    if (m == null) return null;
+    final name = resolveBookName(m.group(1)!);
+    if (name == null) return null;
+    final chapter = int.parse(m.group(2)!);
+    final verses = await getVersesByChapter(name, chapter);
+    if (m.group(3) == null) return verses.take(limit).toList();
+    final start = int.parse(m.group(3)!);
+    final end = m.group(4) == null ? start : int.parse(m.group(4)!);
+    return verses.where((v) => v.verse >= start && v.verse <= end).take(limit).toList();
+  }
 
-  // Get daily verse
+  // ---------------------------------------------------------- daily verse
+
+  /// The verse of the day. The same date always yields the same verse.
   Future<DailyVerseModel?> getDailyVerse([DateTime? date]) async {
-    final now = date ?? DateTime.now();
-    return _databaseService.getDailyVerse(now);
-  }
+    await initialize();
+    if (_dailyVerses.isEmpty) return null;
+    final day = date ?? DateTime.now();
+    final dayNumber =
+        DateTime.utc(day.year, day.month, day.day).millisecondsSinceEpoch ~/ Duration.millisecondsPerDay;
+    final entry = _dailyVerses[dayNumber % _dailyVerses.length];
 
-  // Get random verse
-  Future<VerseModel?> getRandomVerse() async {
-    return _databaseService.getRandomVerse();
-  }
-
-  // ============ READING PLANS ============
-
-  // Get reading plan verses for today
-  Future<List<VerseModel>> getReadingPlanVerses({
-    required String planId,
-    DateTime? date,
-  }) async {
-    final now = date ?? DateTime.now();
-    
-    // This would be implemented based on the specific reading plan
-    // For now, return a random selection
-    final allBooks = await getBibleBooks();
-    final randomBook = allBooks[DateTime.now().day % allBooks.length];
-    final randomChapter = 1 + (DateTime.now().hour % randomBook.chapters);
-    
-    return _databaseService.getVersesByChapter(
-      randomBook.name,
-      randomChapter,
-    );
-  }
-
-  // Get reading plan progress
-  Future<Map<String, dynamic>> getReadingPlanProgress({
-    required String userId,
-    required String planId,
-  }) async {
-    // This would track user's progress through a reading plan
-    // For now, return mock data
-    return {
-      'totalDays': 365,
-      'completedDays': 0,
-      'currentDay': 1,
-      'progress': 0.0,
-      'lastRead': null,
-    };
-  }
-
-  // ============ CROSS REFERENCES ============
-
-  // Get cross references for a verse
-  Future<List<VerseModel>> getCrossReferences(String verseId) async {
-    // This would fetch related verses from a cross-reference database
-    // For now, return empty list
-    return [];
-  }
-
-  // ============ STUDY NOTES ============
-
-  // Get study notes for a verse (local storage version)
-  Future<List<Map<String, dynamic>>> getStudyNotes({
-    required String userId,
-    required String verseId,
-  }) async {
-    // For local storage, we use a simple list stored in user preferences
-    final user = await _databaseService.getUser(userId);
-    if (user == null) return [];
-    
-    // In local mode, study notes are stored in user's preferences
-    final notes = user.preferences['studyNotes'] as List<dynamic>? ?? [];
-    
-    return notes
-        .where((note) => note['verseId'] == verseId)
-        .map((note) => note as Map<String, dynamic>)
+    final book = entry['book'] as String;
+    final chapter = entry['chapter'] as int;
+    final start = entry['verse'] as int;
+    final end = (entry['endVerse'] as int?) ?? start;
+    final passage = (await getVersesByChapter(book, chapter))
+        .where((v) => v.verse >= start && v.verse <= end)
         .toList();
-  }
+    if (passage.isEmpty) return null;
 
-  // Save study note (local storage version)
-  Future<void> saveStudyNote({
-    required String userId,
-    required String verseId,
-    required String note,
-    String? title,
-  }) async {
-    final user = await _databaseService.getUser(userId);
-    if (user == null) return;
-    
-    final studyNote = {
-      'id': _databaseService._localStorageService.generateId(),
-      'verseId': verseId,
-      'note': note,
-      'title': title,
-      'createdAt': DateTime.now().toIso8601String(),
-      'updatedAt': DateTime.now().toIso8601String(),
-    };
-    
-    final notes = List<Map<String, dynamic>>.from(
-      user.preferences['studyNotes'] as List<dynamic>? ?? [],
+    final theme = entry['theme'] as String?;
+    final color = entry['backgroundColor'] as String?;
+    final verse = passage.first.copyWith(
+      reference: end == start ? '$book $chapter:$start' : '$book $chapter:$start-$end',
+      text: passage.map((v) => v.text).join(' '),
+      isDailyVerse: true,
+      date: day,
+      themeColor: color,
+      tags: [if (theme != null) theme],
     );
-    notes.add(studyNote);
-    
-    await _databaseService.updateUser(userId, {
-      'preferences.studyNotes': notes,
-    });
-  }
-
-  // Delete study note (local storage version)
-  Future<void> deleteStudyNote({
-    required String userId,
-    required String noteId,
-  }) async {
-    final user = await _databaseService.getUser(userId);
-    if (user == null) return;
-    
-    final notes = List<Map<String, dynamic>>.from(
-      user.preferences['studyNotes'] as List<dynamic>? ?? [],
+    return DailyVerseModel(
+      verse: verse,
+      date: DateTime(day.year, day.month, day.day),
+      themeColor: color,
+      tags: [if (theme != null) theme],
     );
-    notes.removeWhere((note) => note['id'] == noteId);
-    
-    await _databaseService.updateUser(userId, {
-      'preferences.studyNotes': notes,
-    });
   }
 
-  // ============ BOOKMARKS ============
-
-  // Get bookmarked verses
-  Future<List<VerseModel>> getBookmarkedVerses(String userId) async {
-    final user = await _databaseService.getUser(userId);
-    if (user == null) return [];
-    
-    final bookmarkedIds = user.savedVerseIds;
-    if (bookmarkedIds.isEmpty) return [];
-    
-    final verses = <VerseModel>[];
-    for (final verseId in bookmarkedIds) {
-      final verse = await _databaseService.getVerse(verseId);
-      if (verse != null) {
-        verses.add(verse);
-      }
-    }
-    
-    return verses;
-  }
-
-  // Get liked verses
-  Future<List<VerseModel>> getLikedVerses(String userId) async {
-    final user = await _databaseService.getUser(userId);
-    if (user == null) return [];
-    
-    final likedIds = user.likedVerseIds;
-    if (likedIds.isEmpty) return [];
-    
-    final verses = <VerseModel>[];
-    for (final verseId in likedIds) {
-      final verse = await _databaseService.getVerse(verseId);
-      if (verse != null) {
-        verses.add(verse);
-      }
-    }
-    
-    return verses;
-  }
-
-  // ============ STATISTICS ============
-
-  // Get Bible statistics
-  Future<Map<String, dynamic>> getBibleStatistics() async {
-    final books = await getBibleBooks();
-    final totalChapters = books.fold(0, (sum, book) => sum + book.chapters);
-    
-    // Count total verses (this might be slow for large databases)
-    // For now, use known KJV statistics
-    const kjvStats = {
-      'totalBooks': 66,
-      'totalChapters': 1189,
-      'totalVerses': 31102,
-      'totalWords': 783137,
-    };
-    
-    return {
-      'totalBooks': books.length,
-      'totalChapters': totalChapters,
-      'totalVerses': kjvStats['totalVerses'],
-      'totalWords': kjvStats['totalWords'],
-      'oldTestamentBooks': books.where((b) => b.testament == 1).length,
-      'newTestamentBooks': books.where((b) => b.testament == 2).length,
-    };
-  }
-
-  // Get book statistics
-  Future<Map<String, dynamic>> getBookStatistics(String book) async {
-    final bibleBook = await getBibleBook(book);
-    if (bibleBook == null) {
-      return {};
-    }
-    
-    final verses = await _databaseService.getVersesByBook(book);
-    
-    return {
-      'name': bibleBook.name,
-      'abbreviation': bibleBook.abbreviation,
-      'chapters': bibleBook.chapters,
-      'verses': verses.length,
-      'testament': bibleBook.testament == 1 ? 'Old Testament' : 'New Testament',
-    };
-  }
+  Future<VerseModel?> getVerseOfTheDay() async => (await getDailyVerse())?.verse;
 }

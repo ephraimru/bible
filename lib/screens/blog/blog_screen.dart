@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../config/router.dart';
 import '../../config/theme.dart';
 import '../../models/blog_model.dart';
 import '../../models/user_model.dart';
-import '../../services/auth_service.dart';
-import '../../services/database_service.dart';
-import '../widgets/blog_post_card.dart';
-import '../widgets/category_chip.dart';
+import '../../services/local_auth_service.dart';
+import '../../services/local_storage_service.dart';
+import '../../widgets/blog_post_card.dart';
 
 class BlogScreen extends ConsumerStatefulWidget {
   const BlogScreen({super.key});
@@ -63,7 +63,7 @@ class _BlogScreenState extends ConsumerState<BlogScreen> {
       filtered = filtered.where((post) {
         return post.title.toLowerCase().contains(query) ||
             post.content.toLowerCase().contains(query) ||
-            post.authorName?.toLowerCase().contains(query) ?? false;
+            (post.authorName?.toLowerCase().contains(query) ?? false);
       }).toList();
     }
     
@@ -74,7 +74,7 @@ class _BlogScreenState extends ConsumerState<BlogScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(localCurrentUserProvider).value;
+    final user = ref.watch(localCurrentUserProvider);
     
     return Scaffold(
       appBar: AppBar(

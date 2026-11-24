@@ -3,12 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/chat_model.dart';
 import '../models/user_model.dart';
-import 'database_service.dart';
+import 'local_storage_service.dart';
 
 // Moderation Service Provider
 final moderationServiceProvider = Provider<ModerationService>((ref) {
   return ModerationService(
-    databaseService: ref.read(databaseServiceProvider),
+    storage: ref.read(localStorageServiceProvider),
   );
 });
 
@@ -66,46 +66,62 @@ class ModerationConfig {
 }
 
 class ModerationService {
-  final DatabaseService _databaseService;
+  final LocalStorageService _storage;
   final ModerationConfig _config;
   
-  // Simple word-based classification (for demo purposes)
-  // In production, you would use a proper ML model
-  final _toxicWords = {
-    'hate', 'kill', 'murder', 'violence', 'terror', 'war', 'bomb',
-    'racist', 'racism', 'sexist', 'sexism', 'homophobic', 'bigot',
-    'stupid', 'idiot', 'fool', 'dumb', 'moron', 'retard',
-    'fuck', 'shit', 'asshole', 'bitch', 'whore', 'slut',
-    'damn', 'hell', 'satan', 'devil', 'demon',
-  };
-  
-  final _politicalWords = {
-    'politics', 'political', 'government', 'president', 'prime minister',
-    'congress', 'senate', 'parliament', 'election', 'vote', 'voting',
-    'democrat', 'republican', 'liberal', 'conservative', 'socialist',
-    'communist', 'fascist', 'nazi', 'leftist', 'rightist',
-    'capitalism', 'socialism', 'communism', 'fascism',
-    'immigration', 'border', 'wall', 'migration',
-    'tax', 'taxes', 'economy', 'economic',
-    'abortion', 'pro-choice', 'pro-life', 'gay marriage', 'lgbt',
-    'gun control', 'second amendment', 'nra',
-    'climate change', 'global warming', 'environment',
-    'war', 'military', 'army', 'navy', 'air force',
-  };
-  
-  final _offensiveWords = {
-    ..._toxicWords,
-    'nigger', 'nigga', 'chink', 'kike', 'spic', 'wetback',
-    'fag', 'faggot', 'homo', 'dyke', 'tranny',
-    'cunt', 'pussy', 'dick', 'cock', 'penis', 'vagina',
-    'rape', 'molest', 'pedophile', 'child abuse',
-    'suicide', 'self-harm', 'cutting',
+  // Keyword-based classification, matched on whole words / phrases only
+  // (so "hello" never matches "hell" and "toward" never matches "war").
+  //
+  // Words that appear in the KJV itself (devil, hell, kill, whore, ass,
+  // cock, liberal, government, war, ...) are deliberately NOT listed, so
+  // members can quote Scripture freely.
+
+  /// Insults and hostile language: allowed but flagged for review.
+  static const Set<String> _toxicWords = {
+    'stupid', 'idiot', 'idiots', 'dumb', 'moron', 'morons', 'retard',
+    'retarded', 'loser', 'shut up', 'hate you', 'kill yourself', 'kys',
+    'racist', 'bigot', 'sexist', 'homophobic', 'scum', 'trash',
   };
 
+  /// Profanity and slurs: always rejected.
+  static const Set<String> _offensiveWords = {
+    'fuck', 'fucking', 'fucker', 'motherfucker', 'shit', 'bullshit',
+    'asshole', 'bitch', 'bastards', 'slut', 'cunt', 'pussy', 'dick',
+    'wtf', 'stfu',
+    'nigger', 'nigga', 'chink', 'kike', 'spic', 'wetback',
+    'fag', 'faggot', 'dyke', 'tranny',
+  };
+
+  /// Clearly partisan / political terms. One mention is fine; a message
+  /// needs two or more to count as political discussion.
+  static const Set<String> _politicalWords = {
+    'politics', 'political', 'politician', 'politicians', 'election',
+    'elections', 'ballot', 'democrat', 'democrats', 'republican',
+    'republicans', 'gop', 'left wing', 'right wing', 'leftist', 'rightist',
+    'socialist', 'communist', 'fascist', 'capitalism', 'socialism',
+    'communism', 'fascism', 'congress', 'senate', 'parliament',
+    'president', 'prime minister', 'immigration', 'abortion', 'pro-choice',
+    'pro-life', 'gun control', 'second amendment', 'nra', 'climate change',
+    'global warming', 'trump', 'biden', 'maga', 'woke',
+  };
+
+  static final Map<String, RegExp> _patternCache = {};
+
+  static RegExp _pattern(String term) => _patternCache.putIfAbsent(
+        term,
+        () => RegExp(
+          r'(?<![a-z0-9])' + RegExp.escape(term).replaceAll(' ', r'\s+') + r'(?![a-z0-9])',
+          caseSensitive: false,
+        ),
+      );
+
+  static List<String> _findTerms(String text, Iterable<String> terms) =>
+      [for (final t in terms) if (_pattern(t).hasMatch(text)) t];
+
   ModerationService({
-    required DatabaseService databaseService,
+    required LocalStorageService storage,
     ModerationConfig? config,
-  })  : _databaseService = databaseService,
+  })  : _storage = storage,
         _config = config ?? ModerationConfig();
 
   // ============ MESSAGE MODERATION ============
@@ -150,55 +166,18 @@ class ModerationService {
       );
     }
     
-    // Normalize message for analysis
-    final normalized = message.toLowerCase();
-    
-    // Check for blocked words
-    final foundBlockedWords = <String>[];
-    for (final word in _config.blockedWords) {
-      if (normalized.contains(word.toLowerCase())) {
-        foundBlockedWords.add(word);
-      }
-    }
-    
-    // Check for toxic words
-    final foundToxicWords = <String>[];
-    for (final word in _toxicWords) {
-      if (normalized.contains(word.toLowerCase())) {
-        foundToxicWords.add(word);
-      }
-    }
-    
-    // Check for offensive words
-    final foundOffensiveWords = <String>[];
-    for (final word in _offensiveWords) {
-      if (normalized.contains(word.toLowerCase())) {
-        foundOffensiveWords.add(word);
-      }
-    }
-    
-    // Check for political words
-    final foundPoliticalWords = <String>[];
-    for (final word in _politicalWords) {
-      if (normalized.contains(word.toLowerCase())) {
-        foundPoliticalWords.add(word);
-      }
-    }
-    
-    // Calculate scores
-    final toxicityScore = min(
-      foundToxicWords.length / _toxicWords.length,
-      1.0,
-    );
-    final offensiveScore = min(
-      foundOffensiveWords.length / _offensiveWords.length,
-      1.0,
-    );
-    final politicalScore = min(
-      foundPoliticalWords.length / _politicalWords.length,
-      1.0,
-    );
-    
+    final foundBlockedWords = _findTerms(message, _config.blockedWords);
+    final foundToxicWords = _findTerms(message, _toxicWords);
+    final foundOffensiveWords = _findTerms(message, _offensiveWords);
+    final foundPoliticalWords = _findTerms(message, _politicalWords);
+
+    // Scores are 0..1 and compared against the configured thresholds.
+    final toxicityScore = foundToxicWords.isEmpty
+        ? 0.0
+        : min(0.5 + 0.25 * foundToxicWords.length, 1.0);
+    final offensiveScore = foundOffensiveWords.isEmpty ? 0.0 : 1.0;
+    final politicalScore = min(foundPoliticalWords.length * 0.4, 1.0);
+
     // Check for gospel-related content
     final hasGospelContent = _hasGospelContent(message);
     
@@ -209,7 +188,7 @@ class ModerationService {
     final hasBlockedWords = foundBlockedWords.isNotEmpty;
     
     final isFlagged = isToxic || isOffensive || isPolitical || hasBlockedWords;
-    final requiresReview = isFlagged && !hasGospelContent;
+    final requiresReview = isFlagged;
     
     // Determine violations
     final violations = <String>[];
@@ -218,23 +197,21 @@ class ModerationService {
     if (isPolitical) violations.add('Political content');
     if (hasBlockedWords) violations.add('Blocked words');
     if (!hasGospelContent && isPolitical) {
-      violations.add('Non-gospel political discussion');
+      violations.add('Please keep discussions focused on the Gospel');
     }
     
     // Determine action
     ModerationAction action = ModerationAction.none;
-    if (isFlagged) {
-      if (isOffensive) {
-        action = _config.autoDeleteFlagged 
-            ? ModerationAction.delete 
-            : ModerationAction.flag;
-      } else if (isToxic) {
-        action = ModerationAction.flag;
-      } else if (isPolitical && !hasGospelContent) {
-        action = ModerationAction.warn;
-      }
+    if (isOffensive || hasBlockedWords) {
+      action = ModerationAction.reject;
+    } else if (isPolitical && !hasGospelContent) {
+      action = ModerationAction.reject;
+    } else if (isToxic) {
+      action = ModerationAction.flag;
+    } else if (isPolitical) {
+      action = ModerationAction.warn;
     }
-    
+
     // Build reason
     String reason = '';
     if (violations.isNotEmpty) {
@@ -248,7 +225,7 @@ class ModerationService {
       toxicityScore: toxicityScore,
       offensiveScore: offensiveScore,
       politicalScore: politicalScore,
-      blockedWords: [...foundBlockedWords, ...foundToxicWords, ...foundOffensiveWords],
+      blockedWords: [...foundBlockedWords, ...foundOffensiveWords],
       violations: violations,
       action: action,
       reason: reason,
@@ -259,10 +236,8 @@ class ModerationService {
   bool _hasGospelContent(String message) {
     final normalized = message.toLowerCase();
     
-    for (final topic in _config.allowedTopics) {
-      if (normalized.contains(topic.toLowerCase())) {
-        return true;
-      }
+    if (_findTerms(normalized, _config.allowedTopics).isNotEmpty) {
+      return true;
     }
     
     // Additional gospel-related phrases
@@ -371,7 +346,7 @@ class ModerationService {
 
   /// Check if user should be warned
   Future<bool> shouldWarnUser(String userId) async {
-    final user = await _databaseService.getUser(userId);
+    final user = await _storage.getUser(userId);
     if (user == null) return false;
     
     // Check recent violations - simplified for local storage
@@ -381,7 +356,7 @@ class ModerationService {
 
   /// Check if user is banned or suspended
   Future<bool> isUserRestricted(String userId) async {
-    final user = await _databaseService.getUser(userId);
+    final user = await _storage.getUser(userId);
     if (user == null) return false;
     
     if (user.status == UserStatus.banned) {
@@ -395,7 +370,7 @@ class ModerationService {
         final now = DateTime.now();
         if (now.isAfter(suspensionEndDate)) {
           // Suspension has ended, reactivate user
-          await _databaseService.updateUser(userId, {
+          await _storage.updateUser(userId, {
             'status': UserStatus.active,
           });
           return false;
@@ -414,9 +389,9 @@ class ModerationService {
     var filtered = text;
     
     for (final word in _offensiveWords) {
-      filtered = filtered.replaceAll(
-        RegExp('\\b$word\\b', caseSensitive: false),
-        '*'.padLeft(word.length, '*'),
+      filtered = filtered.replaceAllMapped(
+        _pattern(word),
+        (m) => '*' * m.group(0)!.length,
       );
     }
     
@@ -430,18 +405,34 @@ class ModerationService {
 
   /// Check if text is political
   bool isPolitical(String text) {
-    final normalized = text.toLowerCase();
-    
-    for (final word in _politicalWords) {
-      if (normalized.contains(word.toLowerCase())) {
-        return true;
-      }
-    }
-    
-    return false;
+    return _findTerms(text, _politicalWords).length >= 2;
   }
 
   // ============ REPORT HANDLING ============
+
+  /// Called when a member flags a chat message: records the flag on the
+  /// message and files a report for moderators.
+  Future<String> flagChatMessage({
+    required String roomId,
+    required String messageId,
+    required String reportedBy,
+    required String reason,
+  }) async {
+    final messages = await _storage.getChatMessages(roomId);
+    final message = messages.where((m) => m.id == messageId).firstOrNull;
+    if (message != null && !message.flaggedBy.contains(reportedBy)) {
+      await _storage.updateChatMessage(messageId, {
+        'flaggedBy': [...message.flaggedBy, reportedBy],
+        'requiresReview': true,
+      });
+    }
+    return createModerationReport(
+      messageId: messageId,
+      roomId: roomId,
+      reportedBy: reportedBy,
+      reason: reason,
+    );
+  }
 
   /// Create a moderation report
   Future<String> createModerationReport({
@@ -462,13 +453,14 @@ class ModerationService {
       status: ModerationStatus.pending,
     );
     
-    // Use local storage for reports
-    return _databaseService.createModerationReport(report);
+    final id = _storage.generateId();
+    await _storage.createModerationReport(report.copyWith(id: id));
+    return id;
   }
 
   /// Get pending moderation reports
   Future<List<ModerationReportModel>> getPendingReports() async {
-    return _databaseService.getModerationReports(status: ModerationStatus.pending);
+    return _storage.getModerationReports(status: ModerationStatus.pending);
   }
 
   /// Review a moderation report
@@ -479,7 +471,7 @@ class ModerationService {
     String? actionDescription,
     bool actionTaken = false,
   }) async {
-    await _databaseService.updateModerationReport(reportId, {
+    await _storage.updateModerationReport(reportId, {
       'status': status,
       'reviewedBy': reviewedBy,
       'reviewedAt': DateTime.now(),
@@ -492,12 +484,12 @@ class ModerationService {
 
   /// Automatically moderate chat rooms
   Future<void> autoModerateChatRooms() async {
-    final rooms = await _databaseService.getChatRooms();
+    final rooms = await _storage.getChatRooms();
     
     for (final room in rooms) {
       if (!room.autoModerate) continue;
       
-      final messages = await _databaseService.getChatMessages(room.id);
+      final messages = await _storage.getChatMessages(room.id);
       
       for (final message in messages) {
         if (message.moderationStatus != ModerationStatus.pending) continue;
@@ -510,8 +502,7 @@ class ModerationService {
         
         if (result.isFlagged) {
           // For local storage, we just update the message
-          // In Firebase mode, we would update the document directly
-          await _databaseService.updateChatMessage(room.id, message.id, {
+          await _storage.updateChatMessage(message.id, {
             'moderationStatus': ModerationStatus.flagged,
             'toxicityScore': result.toxicityScore,
             'offensiveScore': result.offensiveScore,
@@ -522,7 +513,7 @@ class ModerationService {
           // Take action based on configuration
           if (room.autoModerate) {
             if (result.action == ModerationAction.delete) {
-              await _databaseService.updateChatMessage(room.id, message.id, {
+              await _storage.updateChatMessage(message.id, {
                 'isDeleted': true,
                 'deletedBy': 'auto-moderator',
                 'deletedAt': DateTime.now(),
@@ -531,12 +522,11 @@ class ModerationService {
             
             if (result.action == ModerationAction.warn && _config.autoWarnUser) {
               // In local storage mode, we can't send notifications
-              // This would be implemented in Firebase mode
             }
           }
         } else {
           // Mark as approved
-          await _databaseService.updateChatMessage(room.id, message.id, {
+          await _storage.updateChatMessage(message.id, {
             'moderationStatus': ModerationStatus.approved,
           });
         }
@@ -613,11 +603,3 @@ enum ModerationAction {
   ban,
 }
 
-/// Moderation status
-enum ModerationStatus {
-  pending,
-  approved,
-  flagged,
-  rejected,
-  deleted,
-}

@@ -97,7 +97,7 @@ class MilestoneCard extends StatelessWidget {
       case FaithMilestoneType.thirtyDayStreak:
         return Icons.calendar_month;
       case FaithMilestoneType.oneYearStreak:
-        return Icons.calendar_view_year;
+        return Icons.event_available;
       case FaithMilestoneType.firstSavedVerse:
         return Icons.bookmark;
       case FaithMilestoneType.firstBlogPost:

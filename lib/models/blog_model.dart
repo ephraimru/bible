@@ -14,6 +14,25 @@ enum BlogCategory {
   gospelReflections,
 }
 
+extension BlogCategoryExtension on BlogCategory {
+  String get displayName {
+    switch (this) {
+      case BlogCategory.devotionals:
+        return 'Devotionals';
+      case BlogCategory.sermons:
+        return 'Sermons';
+      case BlogCategory.testimonies:
+        return 'Testimonies';
+      case BlogCategory.bibleStudy:
+        return 'Bible Study';
+      case BlogCategory.faithJourney:
+        return 'Faith Journey';
+      case BlogCategory.gospelReflections:
+        return 'Gospel Reflections';
+    }
+  }
+}
+
 /// Blog post status
 enum BlogPostStatus {
   draft,
@@ -23,7 +42,7 @@ enum BlogPostStatus {
 }
 
 @freezed
-class BlogPostModel with _$BlogPostModel {
+abstract class BlogPostModel with _$BlogPostModel {
   const factory BlogPostModel({
     required String id,
     required String title,
@@ -40,7 +59,6 @@ class BlogPostModel with _$BlogPostModel {
     @Default(0) int comments,
     @Default([]) List<String> likedBy,
     @Default([]) List<String> bookmarkedBy,
-    @Default([]) List<BlogCommentModel> comments,
     @Default(null) DateTime? publishedAt,
     @Default(null) DateTime? createdAt,
     @Default(null) DateTime? updatedAt,
@@ -57,7 +75,7 @@ class BlogPostModel with _$BlogPostModel {
 
 /// Blog comment model
 @freezed
-class BlogCommentModel with _$BlogCommentModel {
+abstract class BlogCommentModel with _$BlogCommentModel {
   const factory BlogCommentModel({
     required String id,
     required String postId,
@@ -81,7 +99,7 @@ class BlogCommentModel with _$BlogCommentModel {
 
 /// Blog category model with metadata
 @freezed
-class BlogCategoryModel with _$BlogCategoryModel {
+abstract class BlogCategoryModel with _$BlogCategoryModel {
   const factory BlogCategoryModel({
     required BlogCategory category,
     required String displayName,
@@ -98,7 +116,7 @@ class BlogCategoryModel with _$BlogCategoryModel {
 
 /// Blog search result
 @freezed
-class BlogSearchResult with _$BlogSearchResult {
+abstract class BlogSearchResult with _$BlogSearchResult {
   const factory BlogSearchResult({
     required List<BlogPostModel> posts,
     required int totalCount,

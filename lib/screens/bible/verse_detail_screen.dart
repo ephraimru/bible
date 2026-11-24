@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../config/router.dart';
 import '../../config/theme.dart';
 import '../../models/verse_model.dart';
-import '../../services/auth_service.dart';
+import '../../services/local_auth_service.dart';
 import '../../services/bible_service.dart';
-import '../../services/database_service.dart';
-import '../widgets/verse_card.dart';
+import '../../services/local_storage_service.dart';
+import '../../widgets/verse_card.dart';
 
 class VerseDetailScreen extends ConsumerStatefulWidget {
   final String verseId;
@@ -32,7 +35,7 @@ class _VerseDetailScreenState extends ConsumerState<VerseDetailScreen> {
 
   Future<void> _loadVerse() async {
     try {
-      final verse = await ref.read(mockBibleServiceProvider).getVerse(widget.verseId);
+      final verse = await ref.read(bibleServiceProvider).getVerseById(widget.verseId);
       if (verse != null) {
         setState(() {
           _verse = verse;
@@ -51,7 +54,7 @@ class _VerseDetailScreenState extends ConsumerState<VerseDetailScreen> {
         }
         
         // Load related verses (from same chapter)
-        final chapterVerses = await ref.read(mockBibleServiceProvider).getVersesByChapter(
+        final chapterVerses = await ref.read(bibleServiceProvider).getVersesByChapter(
               verse.book,
               verse.chapter,
             );
@@ -113,6 +116,16 @@ class _VerseDetailScreenState extends ConsumerState<VerseDetailScreen> {
     });
   }
 
+  Future<void> _copyVerse() async {
+    final verse = _verse;
+    if (verse == null) return;
+    await Clipboard.setData(ClipboardData(text: '"${verse.text}" — ${verse.reference} (KJV)'));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Verse copied to clipboard')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -120,10 +133,9 @@ class _VerseDetailScreenState extends ConsumerState<VerseDetailScreen> {
         title: Text(_verse?.reference ?? 'Verse'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.share_outlined),
-            onPressed: () {
-              // Share verse
-            },
+            icon: const Icon(Icons.copy_outlined),
+            tooltip: 'Copy verse',
+            onPressed: _copyVerse,
           ),
         ],
       ),
@@ -161,8 +173,8 @@ class _VerseDetailScreenState extends ConsumerState<VerseDetailScreen> {
           ),
           const SizedBox(height: AppTheme.lg),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Go Back'),
+            onPressed: () => context.go('/bible'),
+            child: const Text('Back to Bible'),
           ),
         ],
       ),
@@ -215,25 +227,11 @@ class _VerseDetailScreenState extends ConsumerState<VerseDetailScreen> {
               ),
               const SizedBox(width: AppTheme.md),
               
-              // Share button
+              // Copy button
               IconButton.filledTonal(
-                icon: const Icon(Icons.share_outlined),
-                onPressed: () {
-                  // Share verse
-                },
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.grey.shade100,
-                  padding: const EdgeInsets.all(AppTheme.md),
-                ),
-              ),
-              const SizedBox(width: AppTheme.md),
-              
-              // Notes button
-              IconButton.filledTonal(
-                icon: const Icon(Icons.note_outlined),
-                onPressed: () {
-                  // Open notes
-                },
+                icon: const Icon(Icons.copy_outlined),
+                tooltip: 'Copy verse',
+                onPressed: _copyVerse,
                 style: IconButton.styleFrom(
                   backgroundColor: Colors.grey.shade100,
                   padding: const EdgeInsets.all(AppTheme.md),
@@ -244,6 +242,14 @@ class _VerseDetailScreenState extends ConsumerState<VerseDetailScreen> {
           
           const SizedBox(height: AppTheme.lg),
           
+          OutlinedButton.icon(
+            onPressed: () => context.pushBibleBook(_verse!.book, chapter: _verse!.chapter),
+            icon: const Icon(Icons.menu_book_outlined),
+            label: Text('Read ${_verse!.book} ${_verse!.chapter}'),
+          ),
+
+          const SizedBox(height: AppTheme.lg),
+
           // Verse info
           Card(
             elevation: 2,

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -22,14 +23,18 @@ class _AppState extends ConsumerState<App> {
   }
 
   Future<void> _initializeServices() async {
-    // Initialize notification service
-    await ref.read(notificationServiceProvider).initialize();
-    
-    // Setup reading reminders for logged-in user
-    final userId = ref.read(localAuthServiceProvider).currentUserId;
-    if (userId != null) {
-      await ref.read(notificationServiceProvider).setupDefaultReadingReminders(userId);
-      await ref.read(faithJourneyServiceProvider).setupReadingReminders(userId);
+    // Local notifications aren't supported on every platform (e.g. web), and a
+    // failure here must never stop the app from starting.
+    if (kIsWeb) return;
+    try {
+      await ref.read(notificationServiceProvider).initialize();
+      final userId = ref.read(localAuthServiceProvider).currentUserId;
+      if (userId != null) {
+        await ref.read(notificationServiceProvider).setupDefaultReadingReminders(userId);
+        await ref.read(faithJourneyServiceProvider).setupReadingReminders(userId);
+      }
+    } catch (e, st) {
+      debugPrint('Notification setup failed: $e\n$st');
     }
   }
 
@@ -41,14 +46,7 @@ class _AppState extends ConsumerState<App> {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.light,
-      routerConfig: AppRouter.router,
+      routerConfig: ref.watch(routerProvider),
     );
-  }
-
-  @override
-  void dispose() {
-    // Clean up services
-    ref.read(localAuthServiceProvider).dispose();
-    super.dispose();
   }
 }

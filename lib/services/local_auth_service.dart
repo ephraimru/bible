@@ -1,326 +1,265 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/user_model.dart';
 import 'local_storage_service.dart';
 
-// Local Auth Service Provider
+/// Overridden in `main.dart` with an instance whose session is already restored.
 final localAuthServiceProvider = Provider<LocalAuthService>((ref) {
-  return LocalAuthService(
+  final service = LocalAuthService(
     localStorageService: ref.read(localStorageServiceProvider),
   );
+  ref.onDispose(service.dispose);
+  return service;
 });
 
-// Auth State Provider for Local Auth
-final localAuthStateProvider = StreamProvider<UserModel?>((ref) {
-  return ref.read(localAuthServiceProvider).authStateChanges;
+final localAuthStateProvider = StreamProvider<UserModel?>((ref) async* {
+  final auth = ref.watch(localAuthServiceProvider);
+  yield auth.currentUser;
+  yield* auth.authStateChanges;
 });
 
-// Current User Provider for Local Auth
+/// Live view of a stored user record.
+final _userRecordProvider = StreamProvider.family<UserModel?, String>((ref, userId) {
+  return ref.read(localStorageServiceProvider).streamUser(userId);
+});
+
+/// The signed-in user, kept up to date as their profile changes.
 final localCurrentUserProvider = Provider<UserModel?>((ref) {
-  return ref.read(localAuthServiceProvider).currentUser;
+  final authState = ref.watch(localAuthStateProvider);
+  final signedIn = authState.hasValue
+      ? authState.value
+      : ref.read(localAuthServiceProvider).currentUser;
+  if (signedIn == null) return null;
+  return ref.watch(_userRecordProvider(signedIn.id)).value ?? signedIn;
 });
 
+/// Thrown for problems the user can fix (wrong password, email taken, ...).
+class AuthException implements Exception {
+  AuthException(this.message);
+  final String message;
+  @override
+  String toString() => message;
+}
+
+/// Offline, on-device accounts.
+///
+/// Passwords are never stored: we keep a random salt and a salted, iterated
+/// SHA-256 hash, and compare hashes at sign-in.
 class LocalAuthService {
-  final LocalStorageService _localStorageService;
-  final Uuid _uuid = const Uuid();
-  
-  // Keys for storing auth state
+  LocalAuthService({required LocalStorageService localStorageService})
+      : _storage = localStorageService {
+    _restoreSession();
+  }
+
   static const String _currentUserIdKey = 'current_user_id';
-  static const String _isLoggedInKey = 'is_logged_in';
-  
-  // Current user
-  UserModel? _currentUser;
-  
-  // Stream controller for auth state changes
+  static const int _hashIterations = 10000;
+  static const int minPasswordLength = 6;
+
+  final LocalStorageService _storage;
+  final Uuid _uuid = const Uuid();
   final _authStateController = StreamController<UserModel?>.broadcast();
-  
-  LocalAuthService({
-    required LocalStorageService localStorageService,
-  }) : _localStorageService = localStorageService {
-    // Load current user on initialization
-    _loadCurrentUser();
-  }
 
-  // Load current user from storage
-  Future<void> _loadCurrentUser() async {
-    final userId = await _getStoredUserId();
-    if (userId != null) {
-      _currentUser = await _localStorageService.getUser(userId);
-      _authStateController.add(_currentUser);
+  UserModel? _currentUser;
+
+  /// Restores the signed-in user synchronously so the splash screen and the
+  /// router see the correct state on the very first frame.
+  void _restoreSession() {
+    final userId = _storage.getAppSetting<String>(_currentUserIdKey);
+    if (userId == null) return;
+    _currentUser = _storage.getUserSync(userId);
+    if (_currentUser == null) {
+      // The stored account no longer exists.
+      _storage.setAppSetting(_currentUserIdKey, null);
     }
   }
 
-  // Get stored user ID
-  Future<String?> _getStoredUserId() async {
-    return _localStorageService.getAppSetting<String>(_currentUserIdKey);
-  }
-
-  // Set stored user ID
-  Future<void> _setStoredUserId(String? userId) async {
-    if (userId != null) {
-      await _localStorageService.setAppSetting(_currentUserIdKey, userId);
-      await _localStorageService.setAppSetting(_isLoggedInKey, true);
-    } else {
-      await _localStorageService.setAppSetting(_currentUserIdKey, null);
-      await _localStorageService.setAppSetting(_isLoggedInKey, false);
-    }
-  }
-
-  // Auth state stream
   Stream<UserModel?> get authStateChanges => _authStateController.stream;
-
-  // Get current user
   UserModel? get currentUser => _currentUser;
-
-  // Get current user ID
   String? get currentUserId => _currentUser?.id;
+  bool get isLoggedIn => currentUserId != null;
 
-  // Check if user is logged in
-  bool get isLoggedIn => _currentUser != null;
+  // ---------------------------------------------------------------- helpers
 
-  // Sign up with email and password (simulated)
+  static String _newSalt() {
+    final random = Random.secure();
+    return base64Url.encode(List<int>.generate(16, (_) => random.nextInt(256)));
+  }
+
+  static String _hash(String password, String salt) {
+    List<int> digest = utf8.encode('$salt:$password');
+    for (var i = 0; i < _hashIterations; i++) {
+      digest = sha256.convert(digest).bytes;
+    }
+    return base64Url.encode(digest);
+  }
+
+  /// Constant-time comparison so timing doesn't leak how much of a hash matched.
+  static bool _safeEquals(String a, String b) {
+    if (a.length != b.length) return false;
+    var diff = 0;
+    for (var i = 0; i < a.length; i++) {
+      diff |= a.codeUnitAt(i) ^ b.codeUnitAt(i);
+    }
+    return diff == 0;
+  }
+
+  static String _normalizeEmail(String email) => email.trim().toLowerCase();
+
+  static void _validatePassword(String password) {
+    if (password.length < minPasswordLength) {
+      throw AuthException('Password must be at least $minPasswordLength characters');
+    }
+  }
+
+  Future<void> _savePassword(String userId, String password) async {
+    final salt = _newSalt();
+    await _storage.setCredentials(userId, salt: salt, hash: _hash(password, salt));
+  }
+
+  bool _checkPassword(String userId, String password) {
+    final creds = _storage.getCredentials(userId);
+    if (creds == null) return false;
+    return _safeEquals(_hash(password, creds['salt']!), creds['hash']!);
+  }
+
+  Future<void> _setCurrentUser(UserModel? user, {bool persist = true}) async {
+    _currentUser = user;
+    if (persist) {
+      await _storage.setAppSetting(_currentUserIdKey, user?.id);
+    }
+    if (!_authStateController.isClosed) _authStateController.add(user);
+  }
+
+  Future<void> _reloadCurrentUser() async {
+    final id = currentUserId;
+    if (id == null) return;
+    await _setCurrentUser(await _storage.getUser(id), persist: false);
+  }
+
+  // ------------------------------------------------------------- public API
+
   Future<UserModel> signUpWithEmailAndPassword({
     required String email,
     required String password,
     required String displayName,
     String? photoUrl,
   }) async {
-    // Check if user already exists
-    final existingUsers = await _localStorageService.getAllUsers();
-    final userExists = existingUsers.any((u) => u.email == email);
-    
-    if (userExists) {
-      throw Exception('User with this email already exists');
+    final normalized = _normalizeEmail(email);
+    if (normalized.isEmpty || !normalized.contains('@')) {
+      throw AuthException('Please enter a valid email address');
     }
-    
-    // Create new user
-    final userId = _uuid.v4();
-    final newUser = UserModel(
-      id: userId,
-      email: email,
-      displayName: displayName,
+    _validatePassword(password);
+    if (await _storage.getUserByEmail(normalized) != null) {
+      throw AuthException('An account with this email already exists');
+    }
+
+    final now = DateTime.now();
+    final user = UserModel(
+      id: _uuid.v4(),
+      email: normalized,
+      displayName: displayName.trim(),
       photoUrl: photoUrl,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
+      createdAt: now,
+      updatedAt: now,
     );
-    
-    // Store user
-    await _localStorageService.createUser(newUser);
-    
-    // Set as current user
-    _currentUser = newUser;
-    await _setStoredUserId(userId);
-    _authStateController.add(_currentUser);
-    
-    return newUser;
+    await _storage.createUser(user);
+    await _savePassword(user.id, password);
+    await _setCurrentUser(user);
+    return user;
   }
 
-  // Sign in with email and password (simulated - no actual password checking)
   Future<UserModel> signInWithEmailAndPassword({
     required String email,
     required String password,
   }) async {
-    // Find user by email
-    final existingUsers = await _localStorageService.getAllUsers();
-    final user = existingUsers.firstWhere(
-      (u) => u.email == email,
-      orElse: () => null,
-    );
-    
-    if (user == null) {
-      throw Exception('User not found');
+    final user = await _storage.getUserByEmail(_normalizeEmail(email));
+    // Same message for unknown email and wrong password, so the screen
+    // doesn't reveal which emails have accounts.
+    if (user == null || !_checkPassword(user.id, password)) {
+      throw AuthException('Incorrect email or password');
     }
-    
-    // In a real app, you would verify the password here
-    // For now, we'll just accept any non-empty password
-    if (password.isEmpty) {
-      throw Exception('Invalid password');
+    if (user.status == UserStatus.banned) {
+      throw AuthException('This account has been disabled');
     }
-    
-    // Update last login
-    final updatedUser = user.copyWith(
-      lastNotificationDate: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
-    await _localStorageService.updateUser(user.id, {'lastNotificationDate': DateTime.now(), 'updatedAt': DateTime.now()});
-    
-    // Set as current user
-    _currentUser = updatedUser;
-    await _setStoredUserId(user.id);
-    _authStateController.add(_currentUser);
-    
-    return updatedUser;
+    await _setCurrentUser(user);
+    return user;
   }
 
-  // Sign up/sign in with Google (simulated)
+  /// Google sign-in needs a real identity provider, which the offline build
+  /// doesn't have. Kept so callers compile; the UI hides the button.
   Future<UserModel> signInWithGoogle() async {
-    // For local mode, we'll create a test user if one doesn't exist
-    final existingUsers = await _localStorageService.getAllUsers();
-    
-    // Check if there's a user with google email
-    final googleUser = existingUsers.firstWhere(
-      (u) => u.email.endsWith('@gmail.com'),
-      orElse: () => null,
-    );
-    
-    if (googleUser != null) {
-      // Update last login
-      final updatedUser = googleUser.copyWith(
-        lastNotificationDate: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-      await _localStorageService.updateUser(googleUser.id, {'lastNotificationDate': DateTime.now(), 'updatedAt': DateTime.now()});
-      
-      _currentUser = updatedUser;
-      await _setStoredUserId(googleUser.id);
-      _authStateController.add(_currentUser);
-      
-      return updatedUser;
-    }
-    
-    // Create new test user
-    final userId = _uuid.v4();
-    final newUser = UserModel(
-      id: userId,
-      email: 'test_${_uuid.v4().substring(0, 8)}@gmail.com',
-      displayName: 'Test User',
-      photoUrl: null,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
-    
-    await _localStorageService.createUser(newUser);
-    _currentUser = newUser;
-    await _setStoredUserId(userId);
-    _authStateController.add(_currentUser);
-    
-    return newUser;
+    throw AuthException('Google sign-in is not available in offline mode');
   }
 
-  // Get user by ID
-  Future<UserModel?> getUser(String userId) async {
-    return _localStorageService.getUser(userId);
-  }
+  static const bool isGoogleSignInAvailable = false;
 
-  // Update profile
-  Future<void> updateProfile({
-    String? displayName,
-    String? photoUrl,
-    String? bio,
-  }) async {
-    if (_currentUser == null) {
-      throw Exception('No user logged in');
-    }
-    
-    final updates = <String, dynamic>{'updatedAt': DateTime.now()};
-    
-    if (displayName != null) {
-      updates['displayName'] = displayName;
-    }
-    if (photoUrl != null) {
-      updates['photoUrl'] = photoUrl;
-    }
-    if (bio != null) {
-      updates['bio'] = bio;
-    }
-    
-    await _localStorageService.updateUser(_currentUser!.id, updates);
-    
-    // Update current user
-    _currentUser = _currentUser!.copyWith(
-      displayName: displayName ?? _currentUser!.displayName,
-      photoUrl: photoUrl ?? _currentUser!.photoUrl,
-      bio: bio ?? _currentUser!.bio,
-      updatedAt: DateTime.now(),
-    );
-    
-    _authStateController.add(_currentUser);
-  }
+  Future<UserModel?> getUser(String userId) => _storage.getUser(userId);
 
-  // Update password (simulated - no actual password storage)
-  Future<void> updatePassword(String newPassword) async {
-    if (_currentUser == null) {
-      throw Exception('No user logged in');
-    }
-    
-    // In a real app, you would store/update the password hash
-    // For local mode, we just pretend it worked
-    await _localStorageService.updateUser(_currentUser!.id, {'updatedAt': DateTime.now()});
-    
-    _currentUser = _currentUser!.copyWith(updatedAt: DateTime.now());
-    _authStateController.add(_currentUser);
-  }
-
-  // Reset password (simulated)
-  Future<void> resetPassword(String email) async {
-    // In a real app, this would send an email
-    // For local mode, we just pretend it worked
-  }
-
-  // Update email
-  Future<void> updateEmail(String newEmail) async {
-    if (_currentUser == null) {
-      throw Exception('No user logged in');
-    }
-    
-    // Check if email is already in use
-    final existingUsers = await _localStorageService.getAllUsers();
-    final emailExists = existingUsers.any((u) => u.email == newEmail && u.id != _currentUser!.id);
-    
-    if (emailExists) {
-      throw Exception('Email already in use');
-    }
-    
-    await _localStorageService.updateUser(_currentUser!.id, {
-      'email': newEmail,
-      'updatedAt': DateTime.now(),
+  Future<void> updateProfile({String? displayName, String? photoUrl, String? bio}) async {
+    final id = currentUserId;
+    if (id == null) throw AuthException('No user logged in');
+    await _storage.updateUser(id, {
+      if (displayName != null) 'displayName': displayName.trim(),
+      if (photoUrl != null) 'photoUrl': photoUrl,
+      if (bio != null) 'bio': bio,
     });
-    
-    _currentUser = _currentUser!.copyWith(
-      email: newEmail,
-      updatedAt: DateTime.now(),
-    );
-    
-    _authStateController.add(_currentUser);
+    await _reloadCurrentUser();
   }
 
-  // Sign out
-  Future<void> signOut() async {
-    _currentUser = null;
-    await _setStoredUserId(null);
-    _authStateController.add(null);
-  }
-
-  // Delete account
-  Future<void> deleteAccount() async {
-    if (_currentUser == null) {
-      throw Exception('No user logged in');
+  Future<void> updatePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final id = currentUserId;
+    if (id == null) throw AuthException('No user logged in');
+    if (!_checkPassword(id, currentPassword)) {
+      throw AuthException('Current password is incorrect');
     }
-    
-    // Delete user
-    await _localStorageService.deleteUser(_currentUser!.id);
-    
-    // Clear current user
-    _currentUser = null;
-    await _setStoredUserId(null);
-    _authStateController.add(null);
+    _validatePassword(newPassword);
+    await _savePassword(id, newPassword);
   }
 
-  // Check if email is verified (always true for local mode)
+  /// Accounts live only on this device and there is no email server, so a
+  /// reset link can't be sent.
+  Future<void> resetPassword(String email) async {
+    throw AuthException(
+      'Password reset by email is not available in offline mode. '
+      'If you remember your password, you can change it in Settings.',
+    );
+  }
+
+  Future<void> updateEmail(String newEmail) async {
+    final id = currentUserId;
+    if (id == null) throw AuthException('No user logged in');
+    final normalized = _normalizeEmail(newEmail);
+    final existing = await _storage.getUserByEmail(normalized);
+    if (existing != null && existing.id != id) {
+      throw AuthException('Email already in use');
+    }
+    await _storage.updateUser(id, {'email': normalized});
+    await _reloadCurrentUser();
+  }
+
+  Future<void> signOut() => _setCurrentUser(null);
+
+  Future<void> deleteAccount() async {
+    final id = currentUserId;
+    if (id == null) throw AuthException('No user logged in');
+    await _storage.deleteUser(id);
+    await _storage.deleteCredentials(id);
+    await _storage.deleteFaithJourney(id);
+    await _storage.deleteReadingHabit(id);
+    await _setCurrentUser(null);
+  }
+
   bool get isEmailVerified => true;
 
-  // Send email verification (no-op for local mode)
-  Future<void> sendEmailVerification() async {
-    // No-op for local mode
-  }
-
-  // Reauthenticate user (no-op for local mode)
-  Future<void> reauthenticateUser(String password) async {
-    // No-op for local mode
-  }
-
-  // Dispose
   void dispose() {
     _authStateController.close();
   }

@@ -1,6 +1,8 @@
 
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import 'user_model.dart';
+
 part 'premium_model.freezed.dart';
 part 'premium_model.g.dart';
 
@@ -87,13 +89,13 @@ enum PaymentStatus {
 }
 
 @freezed
-class PremiumFeature with _$PremiumFeature {
+abstract class PremiumFeature with _$PremiumFeature {
   const factory PremiumFeature({
     required PremiumFeatureType id,
     required String name,
     required String description,
     required String icon,
-    required SubscriptionPlan minimumPlan,
+    required PremiumTier minimumPlan,
     @Default(false) bool isAvailable,
     @Default(false) bool isUnlocked,
     @Default(null) DateTime? unlockedAt,
@@ -108,7 +110,7 @@ class PremiumFeature with _$PremiumFeature {
 
 /// Subscription model
 @freezed
-class Subscription with _$Subscription {
+abstract class Subscription with _$Subscription {
   const factory Subscription({
     required String id,
     required String userId,
@@ -137,7 +139,7 @@ class Subscription with _$Subscription {
 
 /// Payment model
 @freezed
-class Payment with _$Payment {
+abstract class Payment with _$Payment {
   const factory Payment({
     required String id,
     required String userId,
@@ -164,13 +166,13 @@ class Payment with _$Payment {
 
 /// Premium content model
 @freezed
-class PremiumContent with _$PremiumContent {
+abstract class PremiumContent with _$PremiumContent {
   const factory PremiumContent({
     required String id,
     required PremiumFeatureType featureType,
     required String title,
     required String content,
-    required SubscriptionPlan minimumPlan,
+    required PremiumTier minimumPlan,
     String? author,
     String? imageUrl,
     @Default([]) List<String> tags,
@@ -188,7 +190,7 @@ class PremiumContent with _$PremiumContent {
 
 /// Price model for different plans
 @freezed
-class PriceModel with _$PriceModel {
+abstract class PriceModel with _$PriceModel {
   const factory PriceModel({
     required SubscriptionPlan plan,
     required double monthlyPrice,
@@ -207,7 +209,7 @@ class PriceModel with _$PriceModel {
 
 /// Ladder skip payment configuration
 @freezed
-class LadderSkipConfig with _$LadderSkipConfig {
+abstract class LadderSkipConfig with _$LadderSkipConfig {
   const factory LadderSkipConfig({
     required String fromRole,
     required String toRole,

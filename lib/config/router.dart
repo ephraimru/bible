@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -24,10 +27,30 @@ import '../screens/bible/book_screen.dart';
 import '../screens/blog/post_detail_screen.dart';
 import '../screens/auth/welcome_screen.dart';
 
-class AppRouter {
-  static final router = GoRouter(
+/// Re-runs the router's redirect whenever the auth state changes.
+class _AuthRefresh extends ChangeNotifier {
+  _AuthRefresh(Stream<UserModel?> stream) {
+    _sub = stream.listen((_) => notifyListeners());
+  }
+  late final StreamSubscription<UserModel?> _sub;
+  @override
+  void dispose() {
+    _sub.cancel();
+    super.dispose();
+  }
+}
+
+const _authPaths = {'/welcome', '/login', '/signup', '/forgot-password'};
+
+final routerProvider = Provider<GoRouter>((ref) {
+  final auth = ref.read(localAuthServiceProvider);
+  final refresh = _AuthRefresh(auth.authStateChanges);
+  ref.onDispose(refresh.dispose);
+
+  return GoRouter(
     initialLocation: '/',
-    debugLogDiagnostics: true,
+    debugLogDiagnostics: kDebugMode,
+    refreshListenable: refresh,
     routes: [
       // Public routes
       GoRoute(
@@ -86,15 +109,16 @@ class AppRouter {
                 path: 'book/:book',
                 name: 'bibleBook',
                 builder: (context, state) {
-                  final book = state.pathParams['book']!;
-                  return BookScreen(book: book);
+                  final book = state.pathParameters['book']!;
+                  final chapter = int.tryParse(state.uri.queryParameters['chapter'] ?? '') ?? 1;
+                  return BookScreen(key: ValueKey('$book/$chapter'), book: book, initialChapter: chapter);
                 },
               ),
               GoRoute(
                 path: 'verse/:id',
                 name: 'verseDetail',
                 builder: (context, state) {
-                  final verseId = state.pathParams['id']!;
+                  final verseId = state.pathParameters['id']!;
                   return VerseDetailScreen(verseId: verseId);
                 },
               ),
@@ -109,7 +133,7 @@ class AppRouter {
                 path: 'post/:id',
                 name: 'postDetail',
                 builder: (context, state) {
-                  final postId = state.pathParams['id']!;
+                  final postId = state.pathParameters['id']!;
                   return PostDetailScreen(postId: postId);
                 },
               ),
@@ -129,7 +153,7 @@ class AppRouter {
                 path: 'room/:id',
                 name: 'chatRoom',
                 builder: (context, state) {
-                  final roomId = state.pathParams['id']!;
+                  final roomId = state.pathParameters['id']!;
                   return ChatRoomScreen(roomId: roomId);
                 },
               ),
@@ -156,31 +180,18 @@ class AppRouter {
       ),
     ],
     
-    // Redirect logic
-    redirect: (context, state) async {
-      final isLoggedIn = await _isLoggedIn(context);
-      final isSplash = state.location == '/';
-      final isAuthPage = state.location.startsWith('/login') ||
-          state.location.startsWith('/signup') ||
-          state.location.startsWith('/forgot-password') ||
-          state.location == '/welcome';
-      
-      // Allow splash screen
-      if (isSplash) return null;
-      
-      // If not logged in and not on auth page, redirect to welcome
-      if (!isLoggedIn && !isAuthPage) {
-        return '/welcome';
-      }
-      
-      // If logged in and on auth page, redirect to home
-      if (isLoggedIn && isAuthPage) {
-        return '/home';
-      }
-      
+    redirect: (context, state) {
+      final location = state.matchedLocation;
+      // The splash screen decides where to go once the Bible has loaded.
+      if (location == '/') return null;
+
+      final isLoggedIn = auth.isLoggedIn;
+      final isAuthPage = _authPaths.contains(location);
+      if (!isLoggedIn && !isAuthPage) return '/welcome';
+      if (isLoggedIn && isAuthPage) return '/home';
       return null;
     },
-    
+
     // Handle errors
     errorBuilder: (context, state) => Scaffold(
       body: Center(
@@ -199,34 +210,29 @@ class AppRouter {
     ),
   );
 
-  // Main shell with bottom navigation
-  static Widget _MainShell({required Widget child}) {
-    return Consumer(
-      builder: (context, ref, child) {
-        return Scaffold(
-          body: child,
-          bottomNavigationBar: _BottomNavigationBar(child: child),
-        );
-      },
-      child: child,
-    );
-  }
+});
 
-  // Check if user is logged in
-  static Future<bool> _isLoggedIn(BuildContext context) async {
-    final authService = context.read<LocalAuthService>();
-    return authService.currentUserId != null;
+/// Scaffold with the bottom navigation bar shared by the main tabs.
+class _MainShell extends StatelessWidget {
+  const _MainShell({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: child,
+      bottomNavigationBar: const _BottomNavigationBar(),
+    );
   }
 }
 
-class _BottomNavigationBar extends ConsumerWidget {
-  final Widget child;
-
-  const _BottomNavigationBar({required this.child});
+class _BottomNavigationBar extends StatelessWidget {
+  const _BottomNavigationBar();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final location = GoRouterState.of(context).location;
+  Widget build(BuildContext context) {
+    final location = GoRouterState.of(context).matchedLocation;
     
     return BottomNavigationBar(
       currentIndex: _getCurrentIndex(location),
@@ -306,8 +312,9 @@ extension GoRouterExtensions on BuildContext {
   void goSignup() => go('/signup');
   void goWelcome() => go('/welcome');
   
-  void pushBibleBook(String book) => go('/bible/book/$book');
-  void pushVerseDetail(String verseId) => go('/bible/verse/$verseId');
+  void pushBibleBook(String book, {int? chapter}) => go(
+      '/bible/book/${Uri.encodeComponent(book)}${chapter != null ? '?chapter=$chapter' : ''}');
+  void pushVerseDetail(String verseId) => go('/bible/verse/${Uri.encodeComponent(verseId)}');
   void pushPostDetail(String postId) => go('/blog/post/$postId');
   void pushCreatePost() => go('/blog/create');
   void pushChatRoom(String roomId) => go('/chat/room/$roomId');

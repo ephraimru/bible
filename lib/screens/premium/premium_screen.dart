@@ -5,9 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../config/theme.dart';
 import '../../models/user_model.dart';
 import '../../models/premium_model.dart';
-import '../../models/faith_journey_model.dart';
-import '../../services/auth_service.dart';
-import '../../services/database_service.dart';
+import '../../services/local_auth_service.dart';
+import '../../services/local_storage_service.dart';
 import '../../services/premium_service.dart';
 import '../../services/faith_journey_service.dart';
 
@@ -21,7 +20,7 @@ class PremiumScreen extends ConsumerStatefulWidget {
 class _PremiumScreenState extends ConsumerState<PremiumScreen> {
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(localCurrentUserProvider).value;
+    final user = ref.watch(localCurrentUserProvider);
     final subscription = ref.watch(currentSubscriptionProvider).value;
     final productsAsync = ref.watch(availableProductsProvider);
     final premiumService = ref.read(premiumServiceProvider);
@@ -605,7 +604,11 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
   }
 
   Future<void> _purchaseSubscription(SubscriptionPlan plan) async {
-    final user = ref.read(localCurrentUserProvider).value;
+    if (!PremiumService.isStoreAvailable) {
+      _showPurchasesUnavailable();
+      return;
+    }
+    final user = ref.read(localCurrentUserProvider);
     if (user == null) return;
     
     final premiumService = ref.read(premiumServiceProvider);
@@ -676,7 +679,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
   }
 
   Future<void> _purchaseBishopAccess() async {
-    final user = ref.read(localCurrentUserProvider).value;
+    final user = ref.read(localCurrentUserProvider);
     if (user == null) return;
     
     showDialog(
@@ -702,7 +705,11 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
   }
 
   Future<void> _purchaseLadderSkip() async {
-    final user = ref.read(localCurrentUserProvider).value;
+    if (!PremiumService.isStoreAvailable) {
+      _showPurchasesUnavailable();
+      return;
+    }
+    final user = ref.read(localCurrentUserProvider);
     if (user == null) return;
     
     final premiumService = ref.read(premiumServiceProvider);
@@ -785,6 +792,10 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
   }
 
   Future<void> _restorePurchases() async {
+    if (!PremiumService.isStoreAvailable) {
+      _showPurchasesUnavailable();
+      return;
+    }
     final premiumService = ref.read(premiumServiceProvider);
     
     showDialog(
@@ -852,8 +863,24 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
     }
   }
 
+  void _showPurchasesUnavailable() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Coming soon'),
+        content: Text(PurchasesUnavailableException().toString()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _showSubscriptionHistory() async {
-    final user = ref.read(localCurrentUserProvider).value;
+    final user = ref.read(localCurrentUserProvider);
     if (user == null) return;
     
     final subscriptions = await ref.read(premiumServiceProvider).getSubscriptionHistory(user.id);

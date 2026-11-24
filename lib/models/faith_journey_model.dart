@@ -28,7 +28,7 @@ enum FaithProgressStatus {
 }
 
 @freezed
-class FaithMilestone with _$FaithMilestone {
+abstract class FaithMilestone with _$FaithMilestone {
   const factory FaithMilestone({
     required String id,
     required String userId,
@@ -50,7 +50,7 @@ class FaithMilestone with _$FaithMilestone {
 
 /// Faith journey progress for each role
 @freezed
-class FaithProgress with _$FaithProgress {
+abstract class FaithProgress with _$FaithProgress {
   const factory FaithProgress({
     required UserRole targetRole,
     @Default(FaithProgressStatus.locked) FaithProgressStatus status,
@@ -70,7 +70,7 @@ class FaithProgress with _$FaithProgress {
 
 /// Complete faith journey tracking
 @freezed
-class FaithJourney with _$FaithJourney {
+abstract class FaithJourney with _$FaithJourney {
   const factory FaithJourney({
     required String userId,
     required UserRole currentRole,
@@ -86,6 +86,11 @@ class FaithJourney with _$FaithJourney {
     @Default([]) List<String> achievements,
     @Default(null) DateTime? startedAt,
     @Default(null) DateTime? lastUpdatedAt,
+    // Streak tracking
+    @Default(null) DateTime? lastReadingDate,
+    @Default(null) DateTime? streakStartDate,
+    // "Book chapter" keys, e.g. "John 3", of every chapter marked as read
+    @Default([]) List<String> chaptersCompleted,
     // Role progression tracking
     @Default(false) bool hasReachedBeliever,
     @Default(false) bool hasReachedPreacher,
@@ -108,7 +113,7 @@ class FaithJourney with _$FaithJourney {
 
 /// Reading habit tracking
 @freezed
-class ReadingHabit with _$ReadingHabit {
+abstract class ReadingHabit with _$ReadingHabit {
   const factory ReadingHabit({
     required String userId,
     @Default([]) List<int> preferredHours, // 0-23
@@ -130,7 +135,7 @@ class ReadingHabit with _$ReadingHabit {
 
 /// Individual reading session
 @freezed
-class ReadingSession with _$ReadingSession {
+abstract class ReadingSession with _$ReadingSession {
   const factory ReadingSession({
     required String id,
     required String userId,
@@ -152,7 +157,7 @@ class ReadingSession with _$ReadingSession {
 
 /// Faith journey statistics for display
 @freezed
-class FaithJourneyStats with _$FaithJourneyStats {
+abstract class FaithJourneyStats with _$FaithJourneyStats {
   const factory FaithJourneyStats({
     required String userId,
     required UserRole currentRole,
@@ -174,6 +179,11 @@ class FaithJourneyStats with _$FaithJourneyStats {
   factory FaithJourneyStats.fromJson(Map<String, dynamic> json) =>
       _$FaithJourneyStatsFromJson(json);
 
+}
+
+extension FaithJourneyStatsExtension on FaithJourneyStats {
+  /// False once the user is a Bishop (the top of the ladder).
+  bool get hasNextRole => currentRole != UserRole.bishop;
 }
 
 /// Title options for users who can choose

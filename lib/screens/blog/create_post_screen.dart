@@ -5,8 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../config/theme.dart';
 import '../../models/blog_model.dart';
 import '../../models/user_model.dart';
-import '../../services/auth_service.dart';
-import '../../services/database_service.dart';
+import '../../services/local_auth_service.dart';
+import '../../services/local_storage_service.dart';
 import '../../services/moderation_service.dart';
 
 class CreatePostScreen extends ConsumerStatefulWidget {
@@ -67,7 +67,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     });
     
     try {
-      final user = ref.read(localCurrentUserProvider).value;
+      final user = ref.read(localCurrentUserProvider);
       if (user == null) {
         throw Exception('User not logged in');
       }
@@ -125,7 +125,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(localCurrentUserProvider).value;
+    final user = ref.watch(localCurrentUserProvider);
     
     // Check if user can post
     if (user != null && !(user.role == UserRole.bishop || user.canPostOnBlog)) {
@@ -384,21 +384,3 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 }
 
 // Category extension for display names
-extension on BlogCategory {
-  String get displayName {
-    switch (this) {
-      case BlogCategory.devotionals:
-        return 'Devotionals';
-      case BlogCategory.sermons:
-        return 'Sermons';
-      case BlogCategory.testimonies:
-        return 'Testimonies';
-      case BlogCategory.bibleStudy:
-        return 'Bible Study';
-      case BlogCategory.faithJourney:
-        return 'Faith Journey';
-      case BlogCategory.gospelReflections:
-        return 'Gospel Reflections';
-    }
-  }
-}
