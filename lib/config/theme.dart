@@ -4,6 +4,8 @@ class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
+      // Bundled in assets/fonts so text renders offline (no font download).
+      fontFamily: 'Roboto',
       brightness: Brightness.light,
       primarySwatch: Colors.blue,
       colorScheme: ColorScheme.light(
@@ -211,6 +213,8 @@ class AppTheme {
   static ThemeData get darkTheme {
     return ThemeData(
       useMaterial3: true,
+      // Bundled in assets/fonts so text renders offline (no font download).
+      fontFamily: 'Roboto',
       brightness: Brightness.dark,
       primarySwatch: Colors.blue,
       colorScheme: ColorScheme.dark(

@@ -49,3 +49,16 @@ flutter:
   
   assets:
     - assets/data/bible_kjv.json
+
+  # Roboto (SIL Open Font License 1.1, see assets/fonts/OFL.txt) is bundled so
+  # the app never needs to download fonts.
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto-Regular.ttf
+        - asset: assets/fonts/Roboto-Italic.ttf
+          style: italic
+        - asset: assets/fonts/Roboto-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Roboto-Bold.ttf
+          weight: 700

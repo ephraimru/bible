@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
+import '../../services/local_storage_service.dart';
 
-class WelcomeScreen extends StatelessWidget {
+class WelcomeScreen extends ConsumerWidget {
   const WelcomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final canSave = ref.read(localStorageServiceProvider).isPersistent;
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -109,6 +112,24 @@ class WelcomeScreen extends StatelessWidget {
                 
                 const SizedBox(height: AppTheme.md),
                 
+                if (!canSave) ...[
+                  Container(
+                    padding: const EdgeInsets.all(AppTheme.md),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: AppTheme.mediumBorderRadius,
+                      border: Border.all(color: Colors.amber.shade300),
+                    ),
+                    child: const Text(
+                      'This browser is not letting the app save data, so your '
+                      'account and reading progress will last only until you '
+                      'close this page.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: AppTheme.md),
+                ],
+
                 // Terms and privacy
                 Text(
                   'By continuing, you agree to our Terms of Service and Privacy Policy',

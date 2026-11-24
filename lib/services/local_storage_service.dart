@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
@@ -59,6 +60,10 @@ class LocalStorageService {
   static const Uuid _uuid = Uuid();
   bool _initialized = false;
 
+  /// False when the device refused persistent storage and data is kept in
+  /// memory only (it will be lost when the app closes).
+  bool isPersistent = true;
+
   /// Opens all boxes. Pass [path] to store data in a specific directory
   /// (used by tests, which have no platform path provider).
   Future<void> initialize({String? path}) async {
@@ -69,8 +74,20 @@ class LocalStorageService {
       await Hive.initFlutter();
     }
     for (final name in _allBoxes) {
-      if (!Hive.isBoxOpen(name)) {
+      if (Hive.isBoxOpen(name)) continue;
+      if (!isPersistent) {
+        await Hive.openBox(name, bytes: Uint8List(0));
+        continue;
+      }
+      try {
         await Hive.openBox(name);
+      } catch (e) {
+        // Persistent storage can be unavailable (e.g. some private-browsing
+        // modes or sandboxed web frames). Keep the app usable with an
+        // in-memory box; data then lasts only for this session.
+        debugPrint('Storage "$name" unavailable, using memory instead: $e');
+        isPersistent = false;
+        await Hive.openBox(name, bytes: Uint8List(0));
       }
     }
     _initialized = true;

@@ -111,7 +111,14 @@ Google/Apple sign-in need a backend and are not available yet.
 ### Storage
 All data lives in [Hive](https://pub.dev/packages/hive) boxes via
 `LocalStorageService`. Models are stored as JSON, so no Hive type adapters are
-needed, and `update*` methods accept a partial map of any model fields.
+needed, and `update*` methods accept a partial map of any model fields. If the
+platform refuses persistent storage (some private-browsing modes or sandboxed
+web frames), the app keeps working with in-memory storage and says so on the
+Welcome screen.
+
+### Fonts
+Roboto is bundled in `assets/fonts` (SIL Open Font License, see
+`assets/fonts/OFL.txt`) so text renders without downloading fonts.
 
 ### Faith journey
 Mark a chapter as read at the end of it in the reader. Streaks count calendar
