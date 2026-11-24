@@ -42,7 +42,6 @@ class NotificationService {
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
-      onDidReceiveLocalNotification: null,
     );
     
     const initSettings = InitializationSettings(
@@ -51,7 +50,7 @@ class NotificationService {
     );
     
     await _notificationsPlugin.initialize(
-      initSettings,
+      settings: initSettings,
       onDidReceiveNotificationResponse: (details) {
         _handleNotificationTap(details.payload);
       },
@@ -72,6 +71,10 @@ class NotificationService {
           badge: true,
           sound: true,
         );
+    // Android 13+ requires asking for permission to post notifications.
+    await _notificationsPlugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.requestNotificationsPermission();
   }
 
   // Handle notification tap
@@ -163,10 +166,10 @@ class NotificationService {
     if (!_initialized) return;
 
     await _notificationsPlugin.show(
-      id,
-      title,
-      body,
-      notificationDetails,
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: notificationDetails,
       payload: payload,
     );
   }
@@ -202,6 +205,7 @@ class NotificationService {
     required String body,
     required DateTime scheduledTime,
     Map<String, dynamic>? data,
+    DateTimeComponents? repeat = DateTimeComponents.time,
   }) async {
     const androidDetails = AndroidNotificationDetails(
       'faith_mission_channel',
@@ -230,16 +234,16 @@ class NotificationService {
     if (!_initialized) return;
 
     await _notificationsPlugin.zonedSchedule(
-      id,
-      title,
-      body,
-      tz.TZDateTime.from(scheduledTime, tz.local),
-      notificationDetails,
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: tz.TZDateTime.from(scheduledTime, tz.local),
+      notificationDetails: notificationDetails,
       payload: payload,
-      androidAllowWhileIdle: true,
-      uiLocalNotificationDateInterpretation: 
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time,
+      // Reminders don't need to-the-minute precision, and inexact alarms
+      // don't require the restricted exact-alarm permission.
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      matchDateTimeComponents: repeat,
     );
   }
 
@@ -253,17 +257,17 @@ class NotificationService {
     Map<String, dynamic>? data,
   }) async {
     final now = DateTime.now();
-    final scheduledTime = DateTime(
+    var scheduledTime = DateTime(
       now.year,
       now.month,
       now.day,
       hour,
       minute,
     );
-    
-    // If scheduled time is in the past, schedule for tomorrow
-    if (scheduledTime.isBefore(now)) {
-      scheduledTime.add(Duration(days: 1));
+
+    // If the time has already passed today, start tomorrow.
+    if (!scheduledTime.isAfter(now)) {
+      scheduledTime = scheduledTime.add(const Duration(days: 1));
     }
     
     await scheduleNotification(
@@ -292,28 +296,32 @@ class NotificationService {
   }) async {
     final now = DateTime.now();
     final daysToAdd = (dayOfWeek - now.weekday + 7) % 7;
-    
-    final scheduledTime = DateTime(
+
+    var scheduledTime = DateTime(
       now.year,
       now.month,
       now.day + daysToAdd,
       hour,
       minute,
     );
-    
+    if (!scheduledTime.isAfter(now)) {
+      scheduledTime = scheduledTime.add(const Duration(days: 7));
+    }
+
     await scheduleNotification(
       id: _generateNotificationId(userId, 'weekly', dayOfWeek, hour * 100 + minute),
       title: title,
       body: body,
       scheduledTime: scheduledTime,
       data: data,
+      repeat: DateTimeComponents.dayOfWeekAndTime,
     );
   }
 
   /// Cancel a notification
   Future<void> cancelNotification(int id) async {
     if (!_initialized) return;
-    await _notificationsPlugin.cancel(id);
+    await _notificationsPlugin.cancel(id: id);
   }
 
   /// Cancel all notifications
