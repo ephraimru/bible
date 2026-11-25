@@ -6,6 +6,9 @@ analyzer:
     - '**/*.freezed.dart'
     - '**/generated_plugin_registrant.dart'
     - '**/firebase_options.dart'
+    - build/**
+    - android/**
+    - ios/**
   
   errors:
     unused_local_variable: warning
