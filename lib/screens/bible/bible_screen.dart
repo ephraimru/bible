@@ -5,8 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../config/theme.dart';
 import '../../models/verse_model.dart';
 import '../../services/bible_service.dart';
-import '../widgets/book_card.dart';
-import '../widgets/search_bar.dart';
+import '../../widgets/book_card.dart';
+import '../../widgets/search_bar.dart';
 
 class BibleScreen extends ConsumerStatefulWidget {
   const BibleScreen({super.key});

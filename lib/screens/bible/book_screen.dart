@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../config/theme.dart';
 import '../../models/verse_model.dart';
 import '../../services/bible_service.dart';
-import '../widgets/verse_card.dart';
+import '../../widgets/verse_card.dart';
 
 class BookScreen extends ConsumerStatefulWidget {
   final String book;

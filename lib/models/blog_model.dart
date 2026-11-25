@@ -23,7 +23,7 @@ enum BlogPostStatus {
 }
 
 @freezed
-class BlogPostModel with _$BlogPostModel {
+abstract class BlogPostModel with _$BlogPostModel {
   const factory BlogPostModel({
     required String id,
     required String title,
@@ -57,7 +57,7 @@ class BlogPostModel with _$BlogPostModel {
 
 /// Blog comment model
 @freezed
-class BlogCommentModel with _$BlogCommentModel {
+abstract class BlogCommentModel with _$BlogCommentModel {
   const factory BlogCommentModel({
     required String id,
     required String postId,
@@ -81,7 +81,7 @@ class BlogCommentModel with _$BlogCommentModel {
 
 /// Blog category model with metadata
 @freezed
-class BlogCategoryModel with _$BlogCategoryModel {
+abstract class BlogCategoryModel with _$BlogCategoryModel {
   const factory BlogCategoryModel({
     required BlogCategory category,
     required String displayName,
@@ -98,7 +98,7 @@ class BlogCategoryModel with _$BlogCategoryModel {
 
 /// Blog search result
 @freezed
-class BlogSearchResult with _$BlogSearchResult {
+abstract class BlogSearchResult with _$BlogSearchResult {
   const factory BlogSearchResult({
     required List<BlogPostModel> posts,
     required int totalCount,

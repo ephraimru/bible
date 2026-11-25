@@ -8,7 +8,7 @@ import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/database_service.dart';
 import '../../services/moderation_service.dart';
-import '../widgets/message_bubble.dart';
+import '../../widgets/message_bubble.dart';
 
 class ChatRoomScreen extends ConsumerStatefulWidget {
   final String roomId;

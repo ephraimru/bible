@@ -43,7 +43,7 @@ extension PremiumTierExtension on PremiumTier {
 }
 
 @freezed
-class UserModel with _$UserModel {
+abstract class UserModel with _$UserModel {
   const factory UserModel({
     required String id,
     required String email,
@@ -134,7 +134,7 @@ extension UserRoleExtension on UserRole {
 
 /// Reading statistics model
 @freezed
-class ReadingStats with _$ReadingStats {
+abstract class ReadingStats with _$ReadingStats {
   const factory ReadingStats({
     @Default(0) int totalVersesRead,
     @Default(0) int totalChaptersRead,

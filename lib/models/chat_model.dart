@@ -41,7 +41,7 @@ enum ModerationStatus {
 }
 
 @freezed
-class ChatMessageModel with _$ChatMessageModel {
+abstract class ChatMessageModel with _$ChatMessageModel {
   const factory ChatMessageModel({
     required String id,
     required String roomId,
@@ -78,7 +78,7 @@ class ChatMessageModel with _$ChatMessageModel {
 
 /// Chat room model
 @freezed
-class ChatRoomModel with _$ChatRoomModel {
+abstract class ChatRoomModel with _$ChatRoomModel {
   const factory ChatRoomModel({
     required String id,
     required String name,
@@ -123,7 +123,7 @@ enum UserPresence {
 }
 
 @freezed
-class ChatPresenceModel with _$ChatPresenceModel {
+abstract class ChatPresenceModel with _$ChatPresenceModel {
   const factory ChatPresenceModel({
     required String userId,
     required String roomId,
@@ -140,7 +140,7 @@ class ChatPresenceModel with _$ChatPresenceModel {
 
 /// Moderation report model
 @freezed
-class ModerationReportModel with _$ModerationReportModel {
+abstract class ModerationReportModel with _$ModerationReportModel {
   const factory ModerationReportModel({
     required String id,
     required String messageId,
@@ -163,7 +163,7 @@ class ModerationReportModel with _$ModerationReportModel {
 
 /// Chat notification model
 @freezed
-class ChatNotificationModel with _$ChatNotificationModel {
+abstract class ChatNotificationModel with _$ChatNotificationModel {
   const factory ChatNotificationModel({
     required String id,
     required String userId,

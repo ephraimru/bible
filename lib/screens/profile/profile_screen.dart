@@ -9,9 +9,9 @@ import '../../models/faith_journey_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/database_service.dart';
 import '../../services/faith_journey_service.dart';
-import '../widgets/profile_header.dart';
-import '../widgets/stats_card.dart';
-import '../widgets/faith_progress_indicator.dart';
+import '../../widgets/profile_header.dart';
+import '../../widgets/stats_card.dart';
+import '../../widgets/faith_progress_indicator.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});

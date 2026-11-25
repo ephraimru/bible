@@ -6,7 +6,7 @@ import '../../models/verse_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/bible_service.dart';
 import '../../services/database_service.dart';
-import '../widgets/verse_card.dart';
+import '../../widgets/verse_card.dart';
 
 class DailyVerseScreen extends ConsumerStatefulWidget {
   const DailyVerseScreen({super.key});

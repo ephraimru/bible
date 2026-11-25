@@ -7,8 +7,8 @@ import '../../models/blog_model.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/database_service.dart';
-import '../widgets/blog_post_card.dart';
-import '../widgets/category_chip.dart';
+import '../../widgets/blog_post_card.dart';
+import '../../widgets/category_chip.dart';
 
 class BlogScreen extends ConsumerStatefulWidget {
   const BlogScreen({super.key});

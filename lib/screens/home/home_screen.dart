@@ -8,11 +8,11 @@ import '../../models/faith_journey_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/bible_service.dart';
 import '../../services/faith_journey_service.dart';
-import '../widgets/verse_card.dart';
-import '../widgets/faith_progress_card.dart';
-import '../widgets/daily_verse_section.dart';
-import '../widgets/reading_streak_card.dart';
-import '../widgets/quick_action_buttons.dart';
+import '../../widgets/verse_card.dart';
+import '../../widgets/faith_progress_card.dart';
+import '../../widgets/daily_verse_section.dart';
+import '../../widgets/reading_streak_card.dart';
+import '../../widgets/quick_action_buttons.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});

@@ -6,9 +6,9 @@ import '../../models/user_model.dart';
 import '../../models/faith_journey_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/faith_journey_service.dart';
-import '../widgets/faith_progress_card.dart';
-import '../widgets/milestone_card.dart';
-import '../widgets/role_progress_card.dart';
+import '../../widgets/faith_progress_card.dart';
+import '../../widgets/milestone_card.dart';
+import '../../widgets/role_progress_card.dart';
 
 class FaithJourneyScreen extends ConsumerStatefulWidget {
   const FaithJourneyScreen({super.key});

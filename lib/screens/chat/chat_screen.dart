@@ -7,7 +7,7 @@ import '../../models/chat_model.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/database_service.dart';
-import '../widgets/chat_room_card.dart';
+import '../../widgets/chat_room_card.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});

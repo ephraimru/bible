@@ -8,7 +8,7 @@ import '../../models/blog_model.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/database_service.dart';
-import '../widgets/comment_section.dart';
+import '../../widgets/comment_section.dart';
 
 class PostDetailScreen extends ConsumerStatefulWidget {
   final String postId;
