@@ -71,7 +71,7 @@ class ModerationService {
   
   // Simple word-based classification (for demo purposes)
   // In production, you would use a proper ML model
-  final _toxicWords = {
+  static const _toxicWords = {
     'hate', 'kill', 'murder', 'violence', 'terror', 'war', 'bomb',
     'racist', 'racism', 'sexist', 'sexism', 'homophobic', 'bigot',
     'stupid', 'idiot', 'fool', 'dumb', 'moron', 'retard',
@@ -79,7 +79,7 @@ class ModerationService {
     'damn', 'hell', 'satan', 'devil', 'demon',
   };
   
-  final _politicalWords = {
+  static const _politicalWords = {
     'politics', 'political', 'government', 'president', 'prime minister',
     'congress', 'senate', 'parliament', 'election', 'vote', 'voting',
     'democrat', 'republican', 'liberal', 'conservative', 'socialist',
@@ -93,7 +93,7 @@ class ModerationService {
     'war', 'military', 'army', 'navy', 'air force',
   };
   
-  final _offensiveWords = {
+  static const _offensiveWords = {
     ..._toxicWords,
     'nigger', 'nigga', 'chink', 'kike', 'spic', 'wetback',
     'fag', 'faggot', 'homo', 'dyke', 'tranny',
@@ -611,13 +611,4 @@ enum ModerationAction {
   reject,
   suspend,
   ban,
-}
-
-/// Moderation status
-enum ModerationStatus {
-  pending,
-  approved,
-  flagged,
-  rejected,
-  deleted,
 }

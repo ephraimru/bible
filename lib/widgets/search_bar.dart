@@ -35,9 +35,7 @@ class CustomSearchBar extends StatelessWidget {
       ),
       onChanged: onChanged,
       onSubmitted: (value) {
-        if (onSearch != null) {
-          onSearch();
-        }
+        onSearch?.call();
       },
     );
   }

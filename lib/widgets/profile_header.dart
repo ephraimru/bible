@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/theme.dart';
 import '../models/user_model.dart';
+import '../services/local_auth_service.dart';
 
-class ProfileHeader extends StatelessWidget {
+class ProfileHeader extends ConsumerWidget {
   final UserModel user;
 
   const ProfileHeader({super.key, required this.user});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -17,10 +19,7 @@ class ProfileHeader extends StatelessWidget {
         Container(
           height: 120,
           decoration: BoxDecoration(
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(AppTheme.largeBorderRadius.topLeft.x),
-              bottom: Radius.circular(AppTheme.largeBorderRadius.bottomLeft.x),
-            ),
+            borderRadius: AppTheme.largeBorderRadius,
             gradient: LinearGradient(
               colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
               begin: Alignment.topLeft,
@@ -128,7 +127,7 @@ class ProfileHeader extends StatelessWidget {
         const SizedBox(height: AppTheme.md),
         
         // Follow button (if viewing own profile, show edit)
-        if (user.id == ref?.read(localAuthServiceProvider)?.currentUserId)
+        if (user.id == ref.read(localAuthServiceProvider).currentUserId)
           ElevatedButton.icon(
             onPressed: () {
               // Edit profile

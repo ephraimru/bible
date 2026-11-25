@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,9 +7,9 @@ import '../models/verse_model.dart';
 import 'database_service.dart';
 
 // Bible Service Provider
-final mockBibleServiceProvider = Provider<BibleService>((ref) {
+final bibleServiceProvider = Provider<BibleService>((ref) {
   return BibleService(
-    databaseService: ref.read(localStorageServiceProvider),
+    databaseService: ref.read(databaseServiceProvider),
   );
 });
 
@@ -125,20 +126,16 @@ class BibleService {
   // Get Bible book by name
   Future<BibleBook?> getBibleBook(String name) async {
     final books = await getBibleBooks();
-    return books.firstWhere(
+    return books.firstWhereOrNull(
       (book) => book.name.toLowerCase() == name.toLowerCase() ||
-          book.abbreviation.toLowerCase() == name.toLowerCase(),
-      orElse: () => null,
-    );
+          book.abbreviation.toLowerCase() == name.toLowerCase());
   }
 
   // Get Bible book by order
   Future<BibleBook?> getBibleBookByOrder(int order) async {
     final books = await getBibleBooks();
-    return books.firstWhere(
-      (book) => book.order == order,
-      orElse: () => null,
-    );
+    return books.firstWhereOrNull(
+      (book) => book.order == order);
   }
 
   // ============ BIBLE CHAPTERS AND VERSES ============
@@ -167,27 +164,26 @@ class BibleService {
     return bibleChapter;
   }
 
-  // Get verse by reference
-  Future<VerseModel?> getVerse(String reference) async {
-    // Parse reference (e.g., "John 3:16", "Genesis 1:1")
-    final parts = reference.split(' ');
-    if (parts.length < 2) return null;
-    
-    final bookName = parts[0];
-    final chapterVerse = parts[1].split(':');
-    
-    if (chapterVerse.length < 2) return null;
-    
-    final chapter = int.tryParse(chapterVerse[0]);
-    final verse = int.tryParse(chapterVerse[1]);
-    
-    if (chapter == null || verse == null) return null;
-    
+  // Get verses in a chapter, in verse order
+  Future<List<VerseModel>> getVersesByChapter(String book, int chapter) async {
+    return (await getChapter(book, chapter))?.verses ?? [];
+  }
+
+  /// Looks a verse up by its ID, or by a reference such as "John 3:16" or
+  /// "1 John 4:8".
+  Future<VerseModel?> getVerse(String idOrReference) async {
+    final byId = await _databaseService.getVerse(idOrReference);
+    if (byId != null) return byId;
+
+    final match = RegExp(r'^(.+)\s+(\d+):(\d+)$').firstMatch(idOrReference.trim());
+    if (match == null) return null;
+
+    final bookName = match.group(1)!;
+    final chapter = int.parse(match.group(2)!);
+    final verse = int.parse(match.group(3)!);
+
     final verses = await _databaseService.getVersesByChapter(bookName, chapter);
-    return verses.firstWhere(
-      (v) => v.verse == verse,
-      orElse: () => null,
-    );
+    return verses.firstWhereOrNull((v) => v.verse == verse);
   }
 
   // Get verses by reference range
@@ -285,22 +281,22 @@ class BibleService {
     
     // Filter by chapter
     var filtered = allVerses;
-    if (chapters != null && chapters!.isNotEmpty) {
-      filtered = filtered.where((v) => chapters!.contains(v.chapter)).toList();
+    if (chapters != null && chapters.isNotEmpty) {
+      filtered = filtered.where((v) => chapters.contains(v.chapter)).toList();
     }
     
     // Filter by verse number
     if (minVerse != null) {
-      filtered = filtered.where((v) => v.verse >= minVerse!).toList();
+      filtered = filtered.where((v) => v.verse >= minVerse).toList();
     }
     if (maxVerse != null) {
-      filtered = filtered.where((v) => v.verse <= maxVerse!).toList();
+      filtered = filtered.where((v) => v.verse <= maxVerse).toList();
     }
     
     // Filter by query
-    if (query != null && query!.isNotEmpty) {
+    if (query != null && query.isNotEmpty) {
       filtered = filtered
-          .where((v) => v.text.toLowerCase().contains(query!.toLowerCase()))
+          .where((v) => v.text.toLowerCase().contains(query.toLowerCase()))
           .toList();
     }
     
@@ -310,9 +306,19 @@ class BibleService {
   // ============ DAILY VERSE ============
 
   // Get daily verse
+  /// The verse of the day for [date] (default today). Picks and stores a
+  /// random verse the first time a day is requested.
   Future<DailyVerseModel?> getDailyVerse([DateTime? date]) async {
-    final now = date ?? DateTime.now();
-    return _databaseService.getDailyVerse(now);
+    final day = date ?? DateTime.now();
+    final existing = await _databaseService.getDailyVerse(day);
+    if (existing != null) return existing;
+
+    final verse = await _databaseService.getRandomVerse();
+    if (verse == null) return null;
+
+    final dailyVerse = DailyVerseModel(verse: verse, date: day);
+    await _databaseService.localStorageService.createDailyVerse(dailyVerse);
+    return dailyVerse;
   }
 
   // Get random verse
@@ -327,7 +333,6 @@ class BibleService {
     required String planId,
     DateTime? date,
   }) async {
-    final now = date ?? DateTime.now();
     
     // This would be implemented based on the specific reading plan
     // For now, return a random selection
@@ -368,69 +373,54 @@ class BibleService {
 
   // ============ STUDY NOTES ============
 
-  // Get study notes for a verse (local storage version)
+  // Study notes are kept per user in an app setting, as a list of JSON maps.
+  String _studyNotesKey(String userId) => 'study_notes_$userId';
+
+  List<Map<String, dynamic>> _loadStudyNotes(String userId) {
+    final raw = _databaseService.localStorageService
+            .getAppSetting<List<dynamic>>(_studyNotesKey(userId)) ??
+        const [];
+    return raw.map((note) => Map<String, dynamic>.from(note as Map)).toList();
+  }
+
+  Future<void> _storeStudyNotes(String userId, List<Map<String, dynamic>> notes) =>
+      _databaseService.localStorageService.setAppSetting(_studyNotesKey(userId), notes);
+
+  // Get study notes for a verse
   Future<List<Map<String, dynamic>>> getStudyNotes({
     required String userId,
     required String verseId,
   }) async {
-    // For local storage, we use a simple list stored in user preferences
-    final user = await _databaseService.getUser(userId);
-    if (user == null) return [];
-    
-    // In local mode, study notes are stored in user's preferences
-    final notes = user.preferences['studyNotes'] as List<dynamic>? ?? [];
-    
-    return notes
-        .where((note) => note['verseId'] == verseId)
-        .map((note) => note as Map<String, dynamic>)
-        .toList();
+    return _loadStudyNotes(userId).where((note) => note['verseId'] == verseId).toList();
   }
 
-  // Save study note (local storage version)
+  // Save a study note
   Future<void> saveStudyNote({
     required String userId,
     required String verseId,
     required String note,
     String? title,
   }) async {
-    final user = await _databaseService.getUser(userId);
-    if (user == null) return;
-    
-    final studyNote = {
-      'id': _databaseService._localStorageService.generateId(),
-      'verseId': verseId,
-      'note': note,
-      'title': title,
-      'createdAt': DateTime.now().toIso8601String(),
-      'updatedAt': DateTime.now().toIso8601String(),
-    };
-    
-    final notes = List<Map<String, dynamic>>.from(
-      user.preferences['studyNotes'] as List<dynamic>? ?? [],
-    );
-    notes.add(studyNote);
-    
-    await _databaseService.updateUser(userId, {
-      'preferences.studyNotes': notes,
-    });
+    final now = DateTime.now().toIso8601String();
+    final notes = _loadStudyNotes(userId)
+      ..add({
+        'id': _databaseService.localStorageService.generateId(),
+        'verseId': verseId,
+        'note': note,
+        'title': title,
+        'createdAt': now,
+        'updatedAt': now,
+      });
+    await _storeStudyNotes(userId, notes);
   }
 
-  // Delete study note (local storage version)
+  // Delete a study note
   Future<void> deleteStudyNote({
     required String userId,
     required String noteId,
   }) async {
-    final user = await _databaseService.getUser(userId);
-    if (user == null) return;
-    
-    final notes = List<Map<String, dynamic>>.from(
-      user.preferences['studyNotes'] as List<dynamic>? ?? [],
-    );
-    notes.removeWhere((note) => note['id'] == noteId);
-    
-    await _databaseService.updateUser(userId, {
-      'preferences.studyNotes': notes,
-    });
+    final notes = _loadStudyNotes(userId)..removeWhere((note) => note['id'] == noteId);
+    await _storeStudyNotes(userId, notes);
   }
 
   // ============ BOOKMARKS ============

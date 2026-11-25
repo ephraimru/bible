@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
 import '../../models/chat_model.dart';
-import '../../models/user_model.dart';
-import '../../services/auth_service.dart';
-import '../../services/database_service.dart';
 import '../../widgets/chat_room_card.dart';
+import '../../services/local_storage_service.dart';
+import '../../config/router.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});

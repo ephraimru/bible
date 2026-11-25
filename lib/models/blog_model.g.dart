@@ -24,7 +24,7 @@ _BlogPostModel _$BlogPostModelFromJson(Map<String, dynamic> json) =>
       coverImageUrl: json['coverImageUrl'] as String?,
       views: (json['views'] as num?)?.toInt() ?? 0,
       likes: (json['likes'] as num?)?.toInt() ?? 0,
-      comments: (json['comments'] as num).toInt(),
+      comments: (json['comments'] as num?)?.toInt() ?? 0,
       likedBy:
           (json['likedBy'] as List<dynamic>?)
               ?.map((e) => e as String)
@@ -35,9 +35,6 @@ _BlogPostModel _$BlogPostModelFromJson(Map<String, dynamic> json) =>
               ?.map((e) => e as String)
               .toList() ??
           const [],
-      comments: (json['comments'] as List<dynamic>)
-          .map((e) => BlogCommentModel.fromJson(e as Map<String, dynamic>))
-          .toList(),
       publishedAt: json['publishedAt'] == null
           ? null
           : DateTime.parse(json['publishedAt'] as String),
@@ -67,9 +64,9 @@ Map<String, dynamic> _$BlogPostModelToJson(_BlogPostModel instance) =>
       'coverImageUrl': instance.coverImageUrl,
       'views': instance.views,
       'likes': instance.likes,
+      'comments': instance.comments,
       'likedBy': instance.likedBy,
       'bookmarkedBy': instance.bookmarkedBy,
-      'comments': instance.comments,
       'publishedAt': instance.publishedAt?.toIso8601String(),
       'createdAt': instance.createdAt?.toIso8601String(),
       'updatedAt': instance.updatedAt?.toIso8601String(),

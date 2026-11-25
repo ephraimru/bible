@@ -1,12 +1,13 @@
+import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../models/user_model.dart';
 import '../models/faith_journey_model.dart';
-import '../models/verse_model.dart';
 import 'local_storage_service.dart';
 import 'mock_bible_service.dart';
 import 'notification_service.dart';
+import 'local_auth_service.dart';
 
 // Faith Journey Service Provider
 final faithJourneyServiceProvider = Provider<FaithJourneyService>((ref) {
@@ -119,24 +120,30 @@ class FaithJourneyService {
     // Update reading stats in local storage
     final user = await _localStorageService.getUser(userId);
     if (user != null) {
-      final readingStats = user.readingStats;
-      final bookProgress = readingStats.bookProgress ?? {};
-      bookProgress[book] = (bookProgress[book] ?? 0) + versesCount;
-      
-      final lastRead = readingStats.lastRead ?? {};
-      lastRead[book] = DateTime.now();
-      
+      final stats = ReadingStats.fromJson(user.readingStats);
+      final now = DateTime.now();
+      final updatedStats = stats.copyWith(
+        bookProgress: {...stats.bookProgress, book: (stats.bookProgress[book] ?? 0) + versesCount},
+        lastRead: {...stats.lastRead, book: now},
+        totalVersesRead: stats.totalVersesRead + versesCount,
+        totalChaptersRead: stats.totalChaptersRead + 1,
+      );
+
+      // Day counters only change on the first reading of a calendar day.
+      final last = user.lastReadingDate;
+      final today = DateTime(now.year, now.month, now.day);
+      final lastDay = last == null ? null : DateTime(last.year, last.month, last.day);
+      final isNewDay = lastDay == null || lastDay.isBefore(today);
+      final continuesStreak =
+          lastDay != null && today.difference(lastDay).inDays == 1;
+
       await _localStorageService.updateUser(userId, {
-        'readingStats': {
-          ...readingStats.toJson(),
-          'bookProgress': bookProgress,
-          'lastRead': lastRead,
-          'totalVersesRead': (readingStats.totalVersesRead ?? 0) + versesCount,
-          'totalChaptersRead': (readingStats.totalChaptersRead ?? 0) + 1,
+        'readingStats': updatedStats.toJson(),
+        'lastReadingDate': now,
+        if (isNewDay) ...{
+          'consecutiveReadingDays': continuesStreak ? user.consecutiveReadingDays + 1 : 1,
+          'totalReadingDays': user.totalReadingDays + 1,
         },
-        'lastReadingDate': DateTime.now(),
-        'consecutiveReadingDays': user.consecutiveReadingDays + 1,
-        'totalReadingDays': user.totalReadingDays + 1,
       });
     }
     
@@ -148,36 +155,42 @@ class FaithJourneyService {
       
       int consecutiveDays = journey.consecutiveDays;
       int longestStreak = journey.longestStreak;
-      
+      DateTime? streakStartDate = journey.streakStartDate;
+      final todayDate = DateTime(today.year, today.month, today.day);
+      bool isNewDay = true;
+
       if (lastReadingDate != null) {
         final lastDate = DateTime(
           lastReadingDate.year,
           lastReadingDate.month,
           lastReadingDate.day,
         );
-        final todayDate = DateTime(today.year, today.month, today.day);
         final diff = todayDate.difference(lastDate).inDays;
-        
+        isNewDay = diff >= 1;
+
         if (diff == 1) {
           consecutiveDays = journey.consecutiveDays + 1;
-          if (consecutiveDays > longestStreak) {
-            longestStreak = consecutiveDays;
-          }
         } else if (diff > 1) {
           consecutiveDays = 1;
+          streakStartDate = todayDate;
         }
       } else {
         consecutiveDays = 1;
+        streakStartDate = todayDate;
       }
-      
+      if (consecutiveDays > longestStreak) {
+        longestStreak = consecutiveDays;
+      }
+
       await _localStorageService.updateFaithJourney(userId, {
         'versesRead': journey.versesRead + versesCount,
         'chaptersRead': journey.chaptersRead + 1,
         'consecutiveDays': consecutiveDays,
         'longestStreak': longestStreak,
         'lastReadingDate': today,
-        'totalDaysRead': journey.totalDaysRead + 1,
-        'lastUpdatedAt': DateTime.now(),
+        'streakStartDate': streakStartDate,
+        if (isNewDay) 'totalDaysRead': journey.totalDaysRead + 1,
+        if (isNewDay) 'readingHistory': [...journey.readingHistory, todayDate],
       });
     } else {
       // Create faith journey if it doesn't exist
@@ -459,10 +472,8 @@ class FaithJourneyService {
       };
     }
     
-    final nextProgress = journey.progressList.firstWhere(
-      (p) => p.targetRole == nextRole,
-      orElse: () => null,
-    );
+    final nextProgress = journey.progressList.firstWhereOrNull(
+      (p) => p.targetRole == nextRole);
     
     if (nextProgress == null) {
       return {
@@ -511,10 +522,8 @@ class FaithJourneyService {
     // Calculate days to next role
     int daysToNextRole = 0;
     if (nextRole != null) {
-      final nextRoleProgress = journey.progressList.firstWhere(
-        (p) => p.targetRole == nextRole,
-        orElse: () => null,
-      );
+      final nextRoleProgress = journey.progressList.firstWhereOrNull(
+        (p) => p.targetRole == nextRole);
       
       if (nextRoleProgress != null) {
         daysToNextRole = nextRoleProgress.requiredProgress - 
@@ -587,7 +596,10 @@ class FaithJourneyService {
     if (remindOnOffWorkHours != null) {
       updates['remindOnOffWorkHours'] = remindOnOffWorkHours;
     }
-    
+
+    if (await _localStorageService.getReadingHabit(userId) == null) {
+      await _localStorageService.createReadingHabit(ReadingHabit(userId: userId));
+    }
     await _localStorageService.updateReadingHabit(userId, updates);
   }
 
@@ -613,14 +625,13 @@ class FaithJourneyService {
         preferredDays: [session.startedAt.weekday - 1],
         notificationsEnabled: true,
         recentSessions: [session],
-        averageReadsPerDay: 1.0,
+        averageReadsPerDay: 1,
         averageDurationMinutes: session.endedAt != null
             ? session.endedAt!.difference(session.startedAt).inMinutes
             : 10,
-        updatedAt: DateTime.now(),
       );
-      
-      // For now, store in user preferences
+      await _localStorageService.createReadingHabit(newHabit);
+
       await _localStorageService.updateUser(session.userId, {
         'readingHours': [session.startedAt.hour],
         'readingDays': [session.startedAt.weekday - 1],
@@ -660,14 +671,10 @@ class FaithJourneyService {
     final journey = await getFaithJourney(userId);
     if (journey == null) return {};
     
-    final streakStart = journey.streakStartDate != null
-        ? DateTime.fromMillisecondsSinceEpoch(journey.streakStartDate!)
-        : null;
-    
     return {
       'consecutiveDays': journey.consecutiveDays,
       'longestStreak': journey.longestStreak,
-      'streakStart': streakStart,
+      'streakStart': journey.streakStartDate,
       'totalDaysRead': journey.totalDaysRead,
       'lastReadingDate': journey.lastReadingDate,
     };

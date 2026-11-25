@@ -1,5 +1,4 @@
-import 'dart:convert';
-import 'package:flutter/services.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/verse_model.dart';
@@ -25,24 +24,24 @@ class MockBibleService {
 
   // Initialize with mock data
   Future<void> initialize() async {
-    // Load mock Bible books
     _bibleBooksCache['kjv'] = _getMockBibleBooks();
-    
-    // Load mock verses for each book
+
+    // Seed storage only once. Re-seeding would also reset every verse's
+    // likes and saves, and slows startup considerably.
+    if (_localStorageService.getAppSetting<bool>(_seededKey) == true) return;
+
     for (final book in _bibleBooksCache['kjv']!) {
-      _versesCache[book.name] = _generateMockVerses(book);
-    }
-    
-    // Save verses to local storage
-    for (final verses in _versesCache.values) {
+      final verses = _generateMockVerses(book);
+      _versesCache[book.name] = verses;
       for (final verse in verses) {
         await _localStorageService.createVerse(verse);
       }
     }
-    
-    // Save Bible books info to local storage
-    await _localStorageService.setAppSetting('bible_books_loaded', true);
+
+    await _localStorageService.setAppSetting(_seededKey, true);
   }
+
+  static const _seededKey = 'bible_books_loaded';
 
   // Get all Bible books
   Future<List<BibleBook>> getBibleBooks() async {
@@ -352,7 +351,7 @@ class MockBibleService {
     
     // Generate mock verses
     final books = _bibleBooksCache['kjv'] ?? _getMockBibleBooks();
-    final bookObj = books.firstWhere((b) => b.name == book, orElse: () => null);
+    final bookObj = books.firstWhereOrNull((b) => b.name == book);
     
     if (bookObj != null) {
       final generatedVerses = _generateMockVerses(bookObj);
@@ -378,10 +377,8 @@ class MockBibleService {
   // Get a specific verse
   Future<VerseModel?> getVerse(String book, int chapter, int verse) async {
     final verses = await getVersesByChapter(book, chapter);
-    return verses.firstWhere(
-      (v) => v.verse == verse,
-      orElse: () => null,
-    );
+    return verses.firstWhereOrNull(
+      (v) => v.verse == verse);
   }
 
   // Search verses
@@ -426,41 +423,22 @@ class MockBibleService {
     return allVerses.elementAt(randomIndex);
   }
 
-  // Get daily verse (from local storage or generate one)
-  Future<VerseModel?> getDailyVerse() async {
+  // Get today's daily verse, picking and storing a random one if needed
+  Future<DailyVerseModel?> getDailyVerse() async {
     final today = DateTime.now();
-    final dateStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-    
-    // Check if we have a daily verse for today
-    final dailyVerse = await _localStorageService.getDailyVerse(today);
-    if (dailyVerse != null) {
-      // Get the actual verse
-      return await getVerse(dailyVerse.verseBook, dailyVerse.verseChapter, dailyVerse.verseNumber);
-    }
-    
-    // Generate a new daily verse
+    final existing = await _localStorageService.getDailyVerse(today);
+    if (existing != null) return existing;
+
     final randomVerse = await getRandomVerse();
-    if (randomVerse != null) {
-      // Save as daily verse
-      final newDailyVerse = DailyVerseModel(
-        date: today,
-        verseBook: randomVerse.book,
-        verseChapter: randomVerse.chapter,
-        verseNumber: randomVerse.verse,
-        backgroundImageUrl: null,
-        themeColor: null,
-        createdAt: DateTime.now(),
-      );
-      await _localStorageService.createDailyVerse(newDailyVerse);
-      
-      return randomVerse;
-    }
-    
-    return null;
+    if (randomVerse == null) return null;
+
+    final dailyVerse = DailyVerseModel(verse: randomVerse, date: today);
+    await _localStorageService.createDailyVerse(dailyVerse);
+    return dailyVerse;
   }
 
   // Get verse of the day
   Future<VerseModel?> getVerseOfTheDay() async {
-    return await getDailyVerse();
+    return (await getDailyVerse())?.verse;
   }
 }

@@ -86,6 +86,8 @@ abstract class FaithJourney with _$FaithJourney {
     @Default([]) List<String> achievements,
     @Default(null) DateTime? startedAt,
     @Default(null) DateTime? lastUpdatedAt,
+    @Default(null) DateTime? lastReadingDate,
+    @Default(null) DateTime? streakStartDate,
     // Role progression tracking
     @Default(false) bool hasReachedBeliever,
     @Default(false) bool hasReachedPreacher,
@@ -174,6 +176,11 @@ abstract class FaithJourneyStats with _$FaithJourneyStats {
   factory FaithJourneyStats.fromJson(Map<String, dynamic> json) =>
       _$FaithJourneyStatsFromJson(json);
 
+}
+
+extension FaithJourneyStatsExtension on FaithJourneyStats {
+  /// Whether there is a higher role to progress towards.
+  bool get hasNextRole => currentRole != UserRole.bishop;
 }
 
 /// Title options for users who can choose

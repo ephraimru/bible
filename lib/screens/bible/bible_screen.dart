@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
 import '../../models/verse_model.dart';
 import '../../services/bible_service.dart';
 import '../../widgets/book_card.dart';
 import '../../widgets/search_bar.dart';
+import '../../config/router.dart';
 
 class BibleScreen extends ConsumerStatefulWidget {
   const BibleScreen({super.key});
@@ -32,7 +32,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
 
   Future<void> _loadBooks() async {
     try {
-      final books = await ref.read(mockBibleServiceProvider).getBibleBooks();
+      final books = await ref.read(bibleServiceProvider).getBibleBooks();
       setState(() {
         _books = books;
         _filteredBooks = books;
@@ -175,7 +175,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
 
 // Bible search delegate
 class BibleSearchDelegate extends SearchDelegate<String> {
-  final ProviderRef ref;
+  final WidgetRef ref;
   
   BibleSearchDelegate({required this.ref});
 
@@ -219,7 +219,7 @@ class BibleSearchDelegate extends SearchDelegate<String> {
     }
     
     return FutureBuilder<List<VerseModel>>(
-      future: ref.read(mockBibleServiceProvider).searchVerses(query: query),
+      future: ref.read(bibleServiceProvider).searchVerses(query: query),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(

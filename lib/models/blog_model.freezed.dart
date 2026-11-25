@@ -16,7 +16,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$BlogPostModel {
 
- String get id; String get title; String get content; String get authorId; String? get authorName; String? get authorPhotoUrl; BlogCategory get category; BlogPostStatus get status; List<String> get tags; String? get coverImageUrl; int get views; int get likes; List<BlogCommentModel> get comments; List<String> get likedBy; List<String> get bookmarkedBy; DateTime? get publishedAt; DateTime? get createdAt; DateTime? get updatedAt; bool get isFeatured; bool get isPremium; String? get excerpt; int get readingTime;
+ String get id; String get title; String get content; String get authorId; String? get authorName; String? get authorPhotoUrl; BlogCategory get category; BlogPostStatus get status; List<String> get tags; String? get coverImageUrl; int get views; int get likes; int get comments; List<String> get likedBy; List<String> get bookmarkedBy; DateTime? get publishedAt; DateTime? get createdAt; DateTime? get updatedAt; bool get isFeatured; bool get isPremium; String? get excerpt; int get readingTime;
 /// Create a copy of BlogPostModel
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -30,14 +30,14 @@ $BlogPostModelCopyWith<BlogPostModel> get copyWith => _$BlogPostModelCopyWithImp
 @override
 bool operator ==(Object other) {
   final _this = this as BlogPostModel;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is BlogPostModel&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.title, _this.title) || other.title == _this.title)&&(identical(other.content, _this.content) || other.content == _this.content)&&(identical(other.authorId, _this.authorId) || other.authorId == _this.authorId)&&(identical(other.authorName, _this.authorName) || other.authorName == _this.authorName)&&(identical(other.authorPhotoUrl, _this.authorPhotoUrl) || other.authorPhotoUrl == _this.authorPhotoUrl)&&(identical(other.category, _this.category) || other.category == _this.category)&&(identical(other.status, _this.status) || other.status == _this.status)&&const DeepCollectionEquality().equals(other.tags, _this.tags)&&(identical(other.coverImageUrl, _this.coverImageUrl) || other.coverImageUrl == _this.coverImageUrl)&&(identical(other.views, _this.views) || other.views == _this.views)&&(identical(other.likes, _this.likes) || other.likes == _this.likes)&&const DeepCollectionEquality().equals(other.comments, _this.comments)&&const DeepCollectionEquality().equals(other.likedBy, _this.likedBy)&&const DeepCollectionEquality().equals(other.bookmarkedBy, _this.bookmarkedBy)&&(identical(other.publishedAt, _this.publishedAt) || other.publishedAt == _this.publishedAt)&&(identical(other.createdAt, _this.createdAt) || other.createdAt == _this.createdAt)&&(identical(other.updatedAt, _this.updatedAt) || other.updatedAt == _this.updatedAt)&&(identical(other.isFeatured, _this.isFeatured) || other.isFeatured == _this.isFeatured)&&(identical(other.isPremium, _this.isPremium) || other.isPremium == _this.isPremium)&&(identical(other.excerpt, _this.excerpt) || other.excerpt == _this.excerpt)&&(identical(other.readingTime, _this.readingTime) || other.readingTime == _this.readingTime));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is BlogPostModel&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.title, _this.title) || other.title == _this.title)&&(identical(other.content, _this.content) || other.content == _this.content)&&(identical(other.authorId, _this.authorId) || other.authorId == _this.authorId)&&(identical(other.authorName, _this.authorName) || other.authorName == _this.authorName)&&(identical(other.authorPhotoUrl, _this.authorPhotoUrl) || other.authorPhotoUrl == _this.authorPhotoUrl)&&(identical(other.category, _this.category) || other.category == _this.category)&&(identical(other.status, _this.status) || other.status == _this.status)&&const DeepCollectionEquality().equals(other.tags, _this.tags)&&(identical(other.coverImageUrl, _this.coverImageUrl) || other.coverImageUrl == _this.coverImageUrl)&&(identical(other.views, _this.views) || other.views == _this.views)&&(identical(other.likes, _this.likes) || other.likes == _this.likes)&&(identical(other.comments, _this.comments) || other.comments == _this.comments)&&const DeepCollectionEquality().equals(other.likedBy, _this.likedBy)&&const DeepCollectionEquality().equals(other.bookmarkedBy, _this.bookmarkedBy)&&(identical(other.publishedAt, _this.publishedAt) || other.publishedAt == _this.publishedAt)&&(identical(other.createdAt, _this.createdAt) || other.createdAt == _this.createdAt)&&(identical(other.updatedAt, _this.updatedAt) || other.updatedAt == _this.updatedAt)&&(identical(other.isFeatured, _this.isFeatured) || other.isFeatured == _this.isFeatured)&&(identical(other.isPremium, _this.isPremium) || other.isPremium == _this.isPremium)&&(identical(other.excerpt, _this.excerpt) || other.excerpt == _this.excerpt)&&(identical(other.readingTime, _this.readingTime) || other.readingTime == _this.readingTime));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as BlogPostModel;
-  return Object.hashAll([runtimeType,_this.id,_this.title,_this.content,_this.authorId,_this.authorName,_this.authorPhotoUrl,_this.category,_this.status,const DeepCollectionEquality().hash(_this.tags),_this.coverImageUrl,_this.views,_this.likes,const DeepCollectionEquality().hash(_this.comments),const DeepCollectionEquality().hash(_this.likedBy),const DeepCollectionEquality().hash(_this.bookmarkedBy),_this.publishedAt,_this.createdAt,_this.updatedAt,_this.isFeatured,_this.isPremium,_this.excerpt,_this.readingTime]);
+  return Object.hashAll([runtimeType,_this.id,_this.title,_this.content,_this.authorId,_this.authorName,_this.authorPhotoUrl,_this.category,_this.status,const DeepCollectionEquality().hash(_this.tags),_this.coverImageUrl,_this.views,_this.likes,_this.comments,const DeepCollectionEquality().hash(_this.likedBy),const DeepCollectionEquality().hash(_this.bookmarkedBy),_this.publishedAt,_this.createdAt,_this.updatedAt,_this.isFeatured,_this.isPremium,_this.excerpt,_this.readingTime]);
 }
 
 @override
@@ -54,7 +54,7 @@ abstract mixin class $BlogPostModelCopyWith<$Res>  {
   factory $BlogPostModelCopyWith(BlogPostModel value, $Res Function(BlogPostModel) _then) = _$BlogPostModelCopyWithImpl;
 @useResult
 $Res call({
- String id, String title, String content, String authorId, String? authorName, String? authorPhotoUrl, BlogCategory category, BlogPostStatus status, List<String> tags, String? coverImageUrl, int views, int likes, int comments, List<String> likedBy, List<String> bookmarkedBy, List<BlogCommentModel> comments, DateTime? publishedAt, DateTime? createdAt, DateTime? updatedAt, bool isFeatured, bool isPremium, String? excerpt, int readingTime
+ String id, String title, String content, String authorId, String? authorName, String? authorPhotoUrl, BlogCategory category, BlogPostStatus status, List<String> tags, String? coverImageUrl, int views, int likes, int comments, List<String> likedBy, List<String> bookmarkedBy, DateTime? publishedAt, DateTime? createdAt, DateTime? updatedAt, bool isFeatured, bool isPremium, String? excerpt, int readingTime
 });
 
 
@@ -71,7 +71,7 @@ class _$BlogPostModelCopyWithImpl<$Res>
 
 /// Create a copy of BlogPostModel
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? title = null,Object? content = null,Object? authorId = null,Object? authorName = freezed,Object? authorPhotoUrl = freezed,Object? category = null,Object? status = null,Object? tags = null,Object? coverImageUrl = freezed,Object? views = null,Object? likes = null,Object? comments = null,Object? likedBy = null,Object? bookmarkedBy = null,Object? comments = null,Object? publishedAt = freezed,Object? createdAt = freezed,Object? updatedAt = freezed,Object? isFeatured = null,Object? isPremium = null,Object? excerpt = freezed,Object? readingTime = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? title = null,Object? content = null,Object? authorId = null,Object? authorName = freezed,Object? authorPhotoUrl = freezed,Object? category = null,Object? status = null,Object? tags = null,Object? coverImageUrl = freezed,Object? views = null,Object? likes = null,Object? comments = null,Object? likedBy = null,Object? bookmarkedBy = null,Object? publishedAt = freezed,Object? createdAt = freezed,Object? updatedAt = freezed,Object? isFeatured = null,Object? isPremium = null,Object? excerpt = freezed,Object? readingTime = null,}) {
   return _then(BlogPostModel(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
@@ -85,11 +85,10 @@ as BlogPostStatus,tags: null == tags ? _self.tags : tags // ignore: cast_nullabl
 as List<String>,coverImageUrl: freezed == coverImageUrl ? _self.coverImageUrl : coverImageUrl // ignore: cast_nullable_to_non_nullable
 as String?,views: null == views ? _self.views : views // ignore: cast_nullable_to_non_nullable
 as int,likes: null == likes ? _self.likes : likes // ignore: cast_nullable_to_non_nullable
-as int,comments: null == comments ? _self.comments! : comments // ignore: cast_nullable_to_non_nullable
+as int,comments: null == comments ? _self.comments : comments // ignore: cast_nullable_to_non_nullable
 as int,likedBy: null == likedBy ? _self.likedBy : likedBy // ignore: cast_nullable_to_non_nullable
 as List<String>,bookmarkedBy: null == bookmarkedBy ? _self.bookmarkedBy : bookmarkedBy // ignore: cast_nullable_to_non_nullable
-as List<String>,comments: null == comments ? _self.comments : comments // ignore: cast_nullable_to_non_nullable
-as List<BlogCommentModel>,publishedAt: freezed == publishedAt ? _self.publishedAt : publishedAt // ignore: cast_nullable_to_non_nullable
+as List<String>,publishedAt: freezed == publishedAt ? _self.publishedAt : publishedAt // ignore: cast_nullable_to_non_nullable
 as DateTime?,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime?,updatedAt: freezed == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
 as DateTime?,isFeatured: null == isFeatured ? _self.isFeatured : isFeatured // ignore: cast_nullable_to_non_nullable
@@ -181,10 +180,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String title,  String content,  String authorId,  String? authorName,  String? authorPhotoUrl,  BlogCategory category,  BlogPostStatus status,  List<String> tags,  String? coverImageUrl,  int views,  int likes,  int comments,  List<String> likedBy,  List<String> bookmarkedBy,  List<BlogCommentModel> comments,  DateTime? publishedAt,  DateTime? createdAt,  DateTime? updatedAt,  bool isFeatured,  bool isPremium,  String? excerpt,  int readingTime)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String title,  String content,  String authorId,  String? authorName,  String? authorPhotoUrl,  BlogCategory category,  BlogPostStatus status,  List<String> tags,  String? coverImageUrl,  int views,  int likes,  int comments,  List<String> likedBy,  List<String> bookmarkedBy,  DateTime? publishedAt,  DateTime? createdAt,  DateTime? updatedAt,  bool isFeatured,  bool isPremium,  String? excerpt,  int readingTime)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _BlogPostModel() when $default != null:
-return $default(_that.id,_that.title,_that.content,_that.authorId,_that.authorName,_that.authorPhotoUrl,_that.category,_that.status,_that.tags,_that.coverImageUrl,_that.views,_that.likes,_that.comments,_that.likedBy,_that.bookmarkedBy,_that.comments,_that.publishedAt,_that.createdAt,_that.updatedAt,_that.isFeatured,_that.isPremium,_that.excerpt,_that.readingTime);case _:
+return $default(_that.id,_that.title,_that.content,_that.authorId,_that.authorName,_that.authorPhotoUrl,_that.category,_that.status,_that.tags,_that.coverImageUrl,_that.views,_that.likes,_that.comments,_that.likedBy,_that.bookmarkedBy,_that.publishedAt,_that.createdAt,_that.updatedAt,_that.isFeatured,_that.isPremium,_that.excerpt,_that.readingTime);case _:
   return orElse();
 
 }
@@ -202,10 +201,10 @@ return $default(_that.id,_that.title,_that.content,_that.authorId,_that.authorNa
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String title,  String content,  String authorId,  String? authorName,  String? authorPhotoUrl,  BlogCategory category,  BlogPostStatus status,  List<String> tags,  String? coverImageUrl,  int views,  int likes,  int comments,  List<String> likedBy,  List<String> bookmarkedBy,  List<BlogCommentModel> comments,  DateTime? publishedAt,  DateTime? createdAt,  DateTime? updatedAt,  bool isFeatured,  bool isPremium,  String? excerpt,  int readingTime)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String title,  String content,  String authorId,  String? authorName,  String? authorPhotoUrl,  BlogCategory category,  BlogPostStatus status,  List<String> tags,  String? coverImageUrl,  int views,  int likes,  int comments,  List<String> likedBy,  List<String> bookmarkedBy,  DateTime? publishedAt,  DateTime? createdAt,  DateTime? updatedAt,  bool isFeatured,  bool isPremium,  String? excerpt,  int readingTime)  $default,) {final _that = this;
 switch (_that) {
 case _BlogPostModel():
-return $default(_that.id,_that.title,_that.content,_that.authorId,_that.authorName,_that.authorPhotoUrl,_that.category,_that.status,_that.tags,_that.coverImageUrl,_that.views,_that.likes,_that.comments,_that.likedBy,_that.bookmarkedBy,_that.comments,_that.publishedAt,_that.createdAt,_that.updatedAt,_that.isFeatured,_that.isPremium,_that.excerpt,_that.readingTime);case _:
+return $default(_that.id,_that.title,_that.content,_that.authorId,_that.authorName,_that.authorPhotoUrl,_that.category,_that.status,_that.tags,_that.coverImageUrl,_that.views,_that.likes,_that.comments,_that.likedBy,_that.bookmarkedBy,_that.publishedAt,_that.createdAt,_that.updatedAt,_that.isFeatured,_that.isPremium,_that.excerpt,_that.readingTime);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -222,10 +221,10 @@ return $default(_that.id,_that.title,_that.content,_that.authorId,_that.authorNa
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String title,  String content,  String authorId,  String? authorName,  String? authorPhotoUrl,  BlogCategory category,  BlogPostStatus status,  List<String> tags,  String? coverImageUrl,  int views,  int likes,  int comments,  List<String> likedBy,  List<String> bookmarkedBy,  List<BlogCommentModel> comments,  DateTime? publishedAt,  DateTime? createdAt,  DateTime? updatedAt,  bool isFeatured,  bool isPremium,  String? excerpt,  int readingTime)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String title,  String content,  String authorId,  String? authorName,  String? authorPhotoUrl,  BlogCategory category,  BlogPostStatus status,  List<String> tags,  String? coverImageUrl,  int views,  int likes,  int comments,  List<String> likedBy,  List<String> bookmarkedBy,  DateTime? publishedAt,  DateTime? createdAt,  DateTime? updatedAt,  bool isFeatured,  bool isPremium,  String? excerpt,  int readingTime)?  $default,) {final _that = this;
 switch (_that) {
 case _BlogPostModel() when $default != null:
-return $default(_that.id,_that.title,_that.content,_that.authorId,_that.authorName,_that.authorPhotoUrl,_that.category,_that.status,_that.tags,_that.coverImageUrl,_that.views,_that.likes,_that.comments,_that.likedBy,_that.bookmarkedBy,_that.comments,_that.publishedAt,_that.createdAt,_that.updatedAt,_that.isFeatured,_that.isPremium,_that.excerpt,_that.readingTime);case _:
+return $default(_that.id,_that.title,_that.content,_that.authorId,_that.authorName,_that.authorPhotoUrl,_that.category,_that.status,_that.tags,_that.coverImageUrl,_that.views,_that.likes,_that.comments,_that.likedBy,_that.bookmarkedBy,_that.publishedAt,_that.createdAt,_that.updatedAt,_that.isFeatured,_that.isPremium,_that.excerpt,_that.readingTime);case _:
   return null;
 
 }
@@ -237,7 +236,7 @@ return $default(_that.id,_that.title,_that.content,_that.authorId,_that.authorNa
 @JsonSerializable()
 
 class _BlogPostModel implements BlogPostModel {
-  const _BlogPostModel({required this.id, required this.title, required this.content, required this.authorId, this.authorName, this.authorPhotoUrl, required this.category, this.status = BlogPostStatus.published,  List<String> tags = const [], this.coverImageUrl, this.views = 0, this.likes = 0, this.comments = 0,  List<String> likedBy = const [],  List<String> bookmarkedBy = const [],  List<BlogCommentModel> comments = const [], this.publishedAt = null, this.createdAt = null, this.updatedAt = null, this.isFeatured = false, this.isPremium = false, this.excerpt, this.readingTime = 0}): _tags = tags,_likedBy = likedBy,_bookmarkedBy = bookmarkedBy,_comments = comments;
+  const _BlogPostModel({required this.id, required this.title, required this.content, required this.authorId, this.authorName, this.authorPhotoUrl, required this.category, this.status = BlogPostStatus.published,  List<String> tags = const [], this.coverImageUrl, this.views = 0, this.likes = 0, this.comments = 0,  List<String> likedBy = const [],  List<String> bookmarkedBy = const [], this.publishedAt = null, this.createdAt = null, this.updatedAt = null, this.isFeatured = false, this.isPremium = false, this.excerpt, this.readingTime = 0}): _tags = tags,_likedBy = likedBy,_bookmarkedBy = bookmarkedBy;
   factory _BlogPostModel.fromJson(Map<String, dynamic> json) => _$BlogPostModelFromJson(json);
 
 @override final  String id;
@@ -273,13 +272,6 @@ class _BlogPostModel implements BlogPostModel {
   return EqualUnmodifiableListView(_bookmarkedBy);
 }
 
- final  List<BlogCommentModel> _comments;
-@override@JsonKey() List<BlogCommentModel> get comments {
-  if (_comments is EqualUnmodifiableListView) return _comments;
-  // ignore: implicit_dynamic_type
-  return EqualUnmodifiableListView(_comments);
-}
-
 @override@JsonKey() final  DateTime? publishedAt;
 @override@JsonKey() final  DateTime? createdAt;
 @override@JsonKey() final  DateTime? updatedAt;
@@ -301,18 +293,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _BlogPostModel&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.content, content) || other.content == content)&&(identical(other.authorId, authorId) || other.authorId == authorId)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.authorPhotoUrl, authorPhotoUrl) || other.authorPhotoUrl == authorPhotoUrl)&&(identical(other.category, category) || other.category == category)&&(identical(other.status, status) || other.status == status)&&const DeepCollectionEquality().equals(other.tags, _tags)&&(identical(other.coverImageUrl, coverImageUrl) || other.coverImageUrl == coverImageUrl)&&(identical(other.views, views) || other.views == views)&&(identical(other.likes, likes) || other.likes == likes)&&(identical(other.comments, comments) || other.comments == comments)&&const DeepCollectionEquality().equals(other.likedBy, _likedBy)&&const DeepCollectionEquality().equals(other.bookmarkedBy, _bookmarkedBy)&&const DeepCollectionEquality().equals(other.comments, _comments)&&(identical(other.publishedAt, publishedAt) || other.publishedAt == publishedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.isFeatured, isFeatured) || other.isFeatured == isFeatured)&&(identical(other.isPremium, isPremium) || other.isPremium == isPremium)&&(identical(other.excerpt, excerpt) || other.excerpt == excerpt)&&(identical(other.readingTime, readingTime) || other.readingTime == readingTime));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _BlogPostModel&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.content, content) || other.content == content)&&(identical(other.authorId, authorId) || other.authorId == authorId)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.authorPhotoUrl, authorPhotoUrl) || other.authorPhotoUrl == authorPhotoUrl)&&(identical(other.category, category) || other.category == category)&&(identical(other.status, status) || other.status == status)&&const DeepCollectionEquality().equals(other.tags, _tags)&&(identical(other.coverImageUrl, coverImageUrl) || other.coverImageUrl == coverImageUrl)&&(identical(other.views, views) || other.views == views)&&(identical(other.likes, likes) || other.likes == likes)&&(identical(other.comments, comments) || other.comments == comments)&&const DeepCollectionEquality().equals(other.likedBy, _likedBy)&&const DeepCollectionEquality().equals(other.bookmarkedBy, _bookmarkedBy)&&(identical(other.publishedAt, publishedAt) || other.publishedAt == publishedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.isFeatured, isFeatured) || other.isFeatured == isFeatured)&&(identical(other.isPremium, isPremium) || other.isPremium == isPremium)&&(identical(other.excerpt, excerpt) || other.excerpt == excerpt)&&(identical(other.readingTime, readingTime) || other.readingTime == readingTime));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hashAll([runtimeType,id,title,content,authorId,authorName,authorPhotoUrl,category,status,const DeepCollectionEquality().hash(_tags),coverImageUrl,views,likes,comments,const DeepCollectionEquality().hash(_likedBy),const DeepCollectionEquality().hash(_bookmarkedBy),const DeepCollectionEquality().hash(_comments),publishedAt,createdAt,updatedAt,isFeatured,isPremium,excerpt,readingTime]);
+    return Object.hashAll([runtimeType,id,title,content,authorId,authorName,authorPhotoUrl,category,status,const DeepCollectionEquality().hash(_tags),coverImageUrl,views,likes,comments,const DeepCollectionEquality().hash(_likedBy),const DeepCollectionEquality().hash(_bookmarkedBy),publishedAt,createdAt,updatedAt,isFeatured,isPremium,excerpt,readingTime]);
 }
 
 @override
 String toString() {
-    return 'BlogPostModel(id: $id, title: $title, content: $content, authorId: $authorId, authorName: $authorName, authorPhotoUrl: $authorPhotoUrl, category: $category, status: $status, tags: $tags, coverImageUrl: $coverImageUrl, views: $views, likes: $likes, comments: $comments, likedBy: $likedBy, bookmarkedBy: $bookmarkedBy, comments: $comments, publishedAt: $publishedAt, createdAt: $createdAt, updatedAt: $updatedAt, isFeatured: $isFeatured, isPremium: $isPremium, excerpt: $excerpt, readingTime: $readingTime)';
+    return 'BlogPostModel(id: $id, title: $title, content: $content, authorId: $authorId, authorName: $authorName, authorPhotoUrl: $authorPhotoUrl, category: $category, status: $status, tags: $tags, coverImageUrl: $coverImageUrl, views: $views, likes: $likes, comments: $comments, likedBy: $likedBy, bookmarkedBy: $bookmarkedBy, publishedAt: $publishedAt, createdAt: $createdAt, updatedAt: $updatedAt, isFeatured: $isFeatured, isPremium: $isPremium, excerpt: $excerpt, readingTime: $readingTime)';
 }
 
 
@@ -323,7 +315,7 @@ abstract mixin class _$BlogPostModelCopyWith<$Res> implements $BlogPostModelCopy
   factory _$BlogPostModelCopyWith(_BlogPostModel value, $Res Function(_BlogPostModel) _then) = __$BlogPostModelCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String title, String content, String authorId, String? authorName, String? authorPhotoUrl, BlogCategory category, BlogPostStatus status, List<String> tags, String? coverImageUrl, int views, int likes, int comments, List<String> likedBy, List<String> bookmarkedBy, List<BlogCommentModel> comments, DateTime? publishedAt, DateTime? createdAt, DateTime? updatedAt, bool isFeatured, bool isPremium, String? excerpt, int readingTime
+ String id, String title, String content, String authorId, String? authorName, String? authorPhotoUrl, BlogCategory category, BlogPostStatus status, List<String> tags, String? coverImageUrl, int views, int likes, int comments, List<String> likedBy, List<String> bookmarkedBy, DateTime? publishedAt, DateTime? createdAt, DateTime? updatedAt, bool isFeatured, bool isPremium, String? excerpt, int readingTime
 });
 
 
@@ -340,7 +332,7 @@ class __$BlogPostModelCopyWithImpl<$Res>
 
 /// Create a copy of BlogPostModel
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? title = null,Object? content = null,Object? authorId = null,Object? authorName = freezed,Object? authorPhotoUrl = freezed,Object? category = null,Object? status = null,Object? tags = null,Object? coverImageUrl = freezed,Object? views = null,Object? likes = null,Object? comments = null,Object? likedBy = null,Object? bookmarkedBy = null,Object? comments = null,Object? publishedAt = freezed,Object? createdAt = freezed,Object? updatedAt = freezed,Object? isFeatured = null,Object? isPremium = null,Object? excerpt = freezed,Object? readingTime = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? title = null,Object? content = null,Object? authorId = null,Object? authorName = freezed,Object? authorPhotoUrl = freezed,Object? category = null,Object? status = null,Object? tags = null,Object? coverImageUrl = freezed,Object? views = null,Object? likes = null,Object? comments = null,Object? likedBy = null,Object? bookmarkedBy = null,Object? publishedAt = freezed,Object? createdAt = freezed,Object? updatedAt = freezed,Object? isFeatured = null,Object? isPremium = null,Object? excerpt = freezed,Object? readingTime = null,}) {
   return _then(_BlogPostModel(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
@@ -357,8 +349,7 @@ as int,likes: null == likes ? _self.likes : likes // ignore: cast_nullable_to_no
 as int,comments: null == comments ? _self.comments : comments // ignore: cast_nullable_to_non_nullable
 as int,likedBy: null == likedBy ? _self._likedBy : likedBy // ignore: cast_nullable_to_non_nullable
 as List<String>,bookmarkedBy: null == bookmarkedBy ? _self._bookmarkedBy : bookmarkedBy // ignore: cast_nullable_to_non_nullable
-as List<String>,comments: null == comments ? _self._comments! : comments // ignore: cast_nullable_to_non_nullable
-as List<BlogCommentModel>,publishedAt: freezed == publishedAt ? _self.publishedAt : publishedAt // ignore: cast_nullable_to_non_nullable
+as List<String>,publishedAt: freezed == publishedAt ? _self.publishedAt : publishedAt // ignore: cast_nullable_to_non_nullable
 as DateTime?,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime?,updatedAt: freezed == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
 as DateTime?,isFeatured: null == isFeatured ? _self.isFeatured : isFeatured // ignore: cast_nullable_to_non_nullable

@@ -41,7 +41,7 @@ class _AppState extends ConsumerState<App> {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.light,
-      routerConfig: AppRouter.router,
+      routerConfig: ref.watch(routerProvider),
     );
   }
 

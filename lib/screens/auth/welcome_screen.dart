@@ -20,7 +20,7 @@ class WelcomeScreen extends StatelessWidget {
                 const SizedBox(height: AppTheme.xl),
                 
                 // App icon and name
-                const Column(
+                Column(
                   children: [
                     Container(
                       padding: EdgeInsets.all(AppTheme.md),

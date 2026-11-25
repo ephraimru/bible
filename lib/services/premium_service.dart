@@ -2,7 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/user_model.dart';
 import '../models/premium_model.dart';
+import 'database_service.dart';
 import 'local_storage_service.dart';
+import 'local_auth_service.dart';
 
 // Premium Service Provider
 final premiumServiceProvider = Provider<PremiumService>((ref) {
@@ -11,13 +13,11 @@ final premiumServiceProvider = Provider<PremiumService>((ref) {
   );
 });
 
-// Current Subscription Provider
-final currentSubscriptionProvider = Provider<Subscription?>((ref) {
-  final userId = ref.read(localAuthServiceProvider).currentUserId;
+// Active subscription of the signed-in user; refreshes when the user changes.
+final currentSubscriptionProvider = FutureProvider<Subscription?>((ref) async {
+  final userId = ref.watch(localCurrentUserProvider.select((user) => user.value?.id));
   if (userId == null) return null;
-  
-  final premiumService = ref.read(premiumServiceProvider);
-  return premiumService.getActiveSubscription(userId);
+  return ref.read(premiumServiceProvider).getActiveSubscription(userId);
 });
 
 // Available Products Provider (empty for local mode)
@@ -45,14 +45,77 @@ class PremiumService {
     bishopLadderSkip,
   };
 
+  // Simulated prices (USD), matching the premium screen.
+  static const Map<SubscriptionPlan, double> planPrices = {
+    SubscriptionPlan.basicMonthly: 4.99,
+    SubscriptionPlan.basicYearly: 39.99,
+    SubscriptionPlan.proMonthly: 9.99,
+    SubscriptionPlan.proYearly: 79.99,
+    SubscriptionPlan.bishop: 24.99,
+  };
+  static const double ladderSkipPrice = 49.99;
+
   PremiumService({
     required LocalStorageService localStorageService,
   })  : _localStorageService = localStorageService;
 
-  // Initialize
-  Future<void> _initialize() async {
-    // In local mode, premium features are available to everyone
-    // or can be enabled through a simple flag
+  String? get _currentUserId =>
+      _localStorageService.getAppSetting<String>('current_user_id');
+
+  /// Simulated purchase of [plan] for the signed-in user (local mode has no
+  /// payment provider). Returns false if nobody is signed in.
+  Future<bool> purchaseSubscription(SubscriptionPlan plan) async {
+    final userId = _currentUserId;
+    if (userId == null || plan == SubscriptionPlan.free) return false;
+
+    final isYearly =
+        plan == SubscriptionPlan.basicYearly || plan == SubscriptionPlan.proYearly;
+    await createSubscription(
+      userId: userId,
+      plan: plan,
+      price: planPrices[plan] ?? 0,
+      currency: 'USD',
+      duration: Duration(days: isYearly ? 365 : 30),
+    );
+    return true;
+  }
+
+  /// Simulated ladder-skip purchase: records the payment only. The caller
+  /// promotes the user. Returns false if nobody is signed in.
+  Future<bool> purchaseLadderSkip() async {
+    final userId = _currentUserId;
+    if (userId == null) return false;
+    final user = await _localStorageService.getUser(userId);
+    final now = DateTime.now();
+    await _localStorageService.createPayment(Payment(
+      id: '',
+      userId: userId,
+      amount: ladderSkipPrice,
+      currency: 'USD',
+      method: PaymentMethod.creditCard,
+      status: PaymentStatus.completed,
+      transactionId: 'local_${now.millisecondsSinceEpoch}',
+      description: 'Ladder skip to Bishop',
+      isForLadderSkip: true,
+      ladderSkipFromRole: user?.role.name,
+      ladderSkipToRole: UserRole.bishop.name,
+      createdAt: now,
+      completedAt: now,
+    ));
+    return true;
+  }
+
+  /// Re-applies the signed-in user's active subscription, if any. Returns
+  /// whether one was found.
+  Future<bool> restorePurchases() async {
+    final userId = _currentUserId;
+    if (userId == null) return false;
+    final subscription = await getActiveSubscription(userId);
+    if (subscription == null || subscription.endDate.isBefore(DateTime.now())) {
+      return false;
+    }
+    await updatePremiumTier(userId, premiumTierForPlan(subscription.plan));
+    return true;
   }
 
   // Get active subscription
@@ -161,15 +224,13 @@ class PremiumService {
   }
 
   // Get payment history
-  Future<List<Payment>> getPaymentHistory(String userId) async {
-    // For local mode, return empty list
-    return [];
-  }
+  Future<List<Payment>> getPaymentHistory(String userId) =>
+      _localStorageService.getUserPayments(userId);
 
   // Create subscription (simulated for local mode)
   Future<String> createSubscription({
     required String userId,
-    required PremiumTier tier,
+    required SubscriptionPlan plan,
     required double price,
     required String currency,
     required Duration duration,
@@ -177,7 +238,8 @@ class PremiumService {
     final subscription = Subscription(
       id: '',
       userId: userId,
-      plan: tier,
+      plan: plan,
+      amount: price,
       startDate: DateTime.now(),
       endDate: DateTime.now().add(duration),
       isActive: true,
@@ -186,16 +248,23 @@ class PremiumService {
       updatedAt: DateTime.now(),
     );
     
-    await _localStorageService.createSubscription(subscription);
-    await updatePremiumTier(userId, tier);
-    
-    return subscription.id;
+    final subscriptionId = await _localStorageService.createSubscription(subscription);
+    await updatePremiumTier(userId, premiumTierForPlan(plan));
+    return subscriptionId;
   }
 
   // Cancel subscription (simulated for local mode)
   Future<void> cancelSubscription(String subscriptionId) async {
-    // In local mode, just mark as inactive
-    // This would need to be implemented properly for Firebase mode
+    final subscription = await _localStorageService.getSubscription(subscriptionId);
+    await _localStorageService.updateSubscription(subscriptionId, {
+      'isActive': false,
+      'isCancelled': true,
+      'autoRenew': false,
+      'cancelledAt': DateTime.now(),
+    });
+    if (subscription != null) {
+      await updatePremiumTier(subscription.userId, PremiumTier.free);
+    }
   }
 
   // Dispose

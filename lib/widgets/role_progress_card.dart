@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../config/theme.dart';
 import '../models/user_model.dart';
-import 'faith_progress_indicator.dart';
 
 class RoleProgressCard extends StatelessWidget {
   final UserRole role;

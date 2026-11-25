@@ -14,6 +14,25 @@ enum BlogCategory {
   gospelReflections,
 }
 
+extension BlogCategoryExtension on BlogCategory {
+  String get displayName {
+    switch (this) {
+      case BlogCategory.devotionals:
+        return 'Devotionals';
+      case BlogCategory.sermons:
+        return 'Sermons';
+      case BlogCategory.testimonies:
+        return 'Testimonies';
+      case BlogCategory.bibleStudy:
+        return 'Bible Study';
+      case BlogCategory.faithJourney:
+        return 'Faith Journey';
+      case BlogCategory.gospelReflections:
+        return 'Gospel Reflections';
+    }
+  }
+}
+
 /// Blog post status
 enum BlogPostStatus {
   draft,
@@ -40,7 +59,6 @@ abstract class BlogPostModel with _$BlogPostModel {
     @Default(0) int comments,
     @Default([]) List<String> likedBy,
     @Default([]) List<String> bookmarkedBy,
-    @Default([]) List<BlogCommentModel> comments,
     @Default(null) DateTime? publishedAt,
     @Default(null) DateTime? createdAt,
     @Default(null) DateTime? updatedAt,

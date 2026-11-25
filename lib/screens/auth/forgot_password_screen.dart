@@ -77,7 +77,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           const SizedBox(height: AppTheme.md),
           
           // App icon
-          const Column(
+          Column(
             children: [
               Container(
                 padding: EdgeInsets.all(AppTheme.md),

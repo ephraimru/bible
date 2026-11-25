@@ -1,25 +1,31 @@
-import 'package:hive/hive.dart';
-import 'package:hive_flutter/hive_flutter.dart';
+import 'dart:convert';
+
+import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 
-import '../models/user_model.dart';
-import '../models/verse_model.dart';
 import '../models/blog_model.dart';
 import '../models/chat_model.dart';
 import '../models/faith_journey_model.dart';
 import '../models/premium_model.dart';
+import '../models/user_model.dart';
+import '../models/verse_model.dart';
 
 // Hive box names
 const String kUsersBox = 'users';
 const String kVersesBox = 'verses';
 const String kBlogPostsBox = 'blog_posts';
+const String kBlogCommentsBox = 'blog_comments';
 const String kChatRoomsBox = 'chat_rooms';
+const String kChatMessagesBox = 'chat_messages';
 const String kFaithJourneysBox = 'faith_journeys';
 const String kReadingHabitsBox = 'reading_habits';
+const String kReadingSessionsBox = 'reading_sessions';
 const String kSubscriptionsBox = 'subscriptions';
 const String kPaymentsBox = 'payments';
 const String kDailyVersesBox = 'daily_verses';
+const String kModerationReportsBox = 'moderation_reports';
 const String kAppSettingsBox = 'app_settings';
 
 // Local Storage Service Provider
@@ -27,43 +33,141 @@ final localStorageServiceProvider = Provider<LocalStorageService>((ref) {
   return LocalStorageService();
 });
 
+/// Converts a value into something `jsonEncode` accepts, so that partial
+/// updates (which may contain enums, dates or models) can be merged into a
+/// model's stored JSON.
+Object? toJsonValue(Object? value) {
+  if (value == null || value is String || value is num || value is bool) {
+    return value;
+  }
+  if (value is DateTime) return value.toIso8601String();
+  if (value is Duration) return value.inMicroseconds;
+  if (value is Enum) return value.name;
+  if (value is Map) {
+    return value.map((k, v) => MapEntry(k.toString(), toJsonValue(v)));
+  }
+  if (value is Iterable) return value.map(toJsonValue).toList();
+  return toJsonValue((value as dynamic).toJson());
+}
+
+/// Newest-first comparison for nullable dates (nulls sort last).
+int compareNewestFirst(DateTime? a, DateTime? b) {
+  if (a == null && b == null) return 0;
+  if (a == null) return 1;
+  if (b == null) return -1;
+  return b.compareTo(a);
+}
+
+/// A Hive box that stores models as JSON strings, so no Hive type adapters
+/// are needed for the freezed models.
+class JsonBox<T> {
+  JsonBox(this.name, this._fromJson, this._toJson);
+
+  final String name;
+  final T Function(Map<String, dynamic> json) _fromJson;
+  final Map<String, dynamic> Function(T value) _toJson;
+
+  Box<String> get _box => Hive.box<String>(name);
+
+  Future<void> open() => Hive.openBox<String>(name);
+
+  T? _decode(String? raw) =>
+      raw == null ? null : _fromJson(jsonDecode(raw) as Map<String, dynamic>);
+
+  T? get(String key) => _decode(_box.get(key));
+
+  Iterable<T> get values => _box.values.map((raw) => _decode(raw) as T);
+
+  Future<void> put(String key, T value) =>
+      _box.put(key, jsonEncode(_toJson(value)));
+
+  Future<void> delete(String key) => _box.delete(key);
+
+  Future<void> clear() => _box.clear();
+
+  /// Merges [updates] (field name -> new value) into the stored model.
+  /// Returns the updated model, or null if [key] does not exist.
+  Future<T?> update(String key, Map<String, dynamic> updates) async {
+    final raw = _box.get(key);
+    if (raw == null) return null;
+    final merged = jsonDecode(raw) as Map<String, dynamic>
+      ..addAll(toJsonValue(updates) as Map<String, dynamic>);
+    final value = _fromJson(merged);
+    await put(key, value);
+    return value;
+  }
+
+  /// Emits the current value of [key], then every later change to it.
+  Stream<T?> watchKey(String key) async* {
+    yield get(key);
+    yield* _box
+        .watch(key: key)
+        .map((event) => event.deleted ? null : _decode(event.value as String?));
+  }
+
+  /// Emits whenever anything in the box changes.
+  Stream<void> watchAll() => _box.watch().map((_) {});
+}
+
 class LocalStorageService {
   static const Uuid _uuid = Uuid();
-  
-  // Initialize Hive
+
+  final _users = JsonBox<UserModel>(
+      kUsersBox, UserModel.fromJson, (v) => v.toJson());
+  final _verses = JsonBox<VerseModel>(
+      kVersesBox, VerseModel.fromJson, (v) => v.toJson());
+  final _dailyVerses = JsonBox<DailyVerseModel>(
+      kDailyVersesBox, DailyVerseModel.fromJson, (v) => v.toJson());
+  final _blogPosts = JsonBox<BlogPostModel>(
+      kBlogPostsBox, BlogPostModel.fromJson, (v) => v.toJson());
+  final _blogComments = JsonBox<BlogCommentModel>(
+      kBlogCommentsBox, BlogCommentModel.fromJson, (v) => v.toJson());
+  final _chatRooms = JsonBox<ChatRoomModel>(
+      kChatRoomsBox, ChatRoomModel.fromJson, (v) => v.toJson());
+  final _chatMessages = JsonBox<ChatMessageModel>(
+      kChatMessagesBox, ChatMessageModel.fromJson, (v) => v.toJson());
+  final _faithJourneys = JsonBox<FaithJourney>(
+      kFaithJourneysBox, FaithJourney.fromJson, (v) => v.toJson());
+  final _readingHabits = JsonBox<ReadingHabit>(
+      kReadingHabitsBox, ReadingHabit.fromJson, (v) => v.toJson());
+  final _readingSessions = JsonBox<ReadingSession>(
+      kReadingSessionsBox, ReadingSession.fromJson, (v) => v.toJson());
+  final _subscriptions = JsonBox<Subscription>(
+      kSubscriptionsBox, Subscription.fromJson, (v) => v.toJson());
+  final _payments = JsonBox<Payment>(
+      kPaymentsBox, Payment.fromJson, (v) => v.toJson());
+  final _moderationReports = JsonBox<ModerationReportModel>(
+      kModerationReportsBox, ModerationReportModel.fromJson, (v) => v.toJson());
+
+  List<JsonBox<dynamic>> get _allBoxes => [
+        _users,
+        _verses,
+        _dailyVerses,
+        _blogPosts,
+        _blogComments,
+        _chatRooms,
+        _chatMessages,
+        _faithJourneys,
+        _readingHabits,
+        _readingSessions,
+        _subscriptions,
+        _payments,
+        _moderationReports,
+      ];
+
+  // Initialize Hive and open all boxes
   Future<void> initialize() async {
     await Hive.initFlutter();
-    
-    // Register adapters
-    _registerAdapters();
-    
-    // Open all boxes
-    await _openBoxes();
-  }
-
-  void _registerAdapters() {
-    // Register custom adapters if needed
-    // Hive.registerAdapter(UserModelAdapter());
-    // For now, we'll use JSON serialization
-  }
-
-  Future<void> _openBoxes() async {
-    await Hive.openBox<UserModel>(kUsersBox);
-    await Hive.openBox<VerseModel>(kVersesBox);
-    await Hive.openBox<BlogPostModel>(kBlogPostsBox);
-    await Hive.openBox<ChatRoomModel>(kChatRoomsBox);
-    await Hive.openBox<FaithJourney>(kFaithJourneysBox);
-    await Hive.openBox<ReadingHabit>(kReadingHabitsBox);
-    await Hive.openBox<Subscription>(kSubscriptionsBox);
-    await Hive.openBox<Payment>(kPaymentsBox);
-    await Hive.openBox<DailyVerseModel>(kDailyVersesBox);
+    for (final box in _allBoxes) {
+      await box.open();
+    }
     await Hive.openBox(kAppSettingsBox);
   }
 
   // Generate unique ID
-  String generateId() {
-    return _uuid.v4();
-  }
+  String generateId() => _uuid.v4();
+
+  String _idOrNew(String id) => id.isEmpty ? generateId() : id;
 
   // Close all boxes
   Future<void> close() async {
@@ -72,913 +176,547 @@ class LocalStorageService {
 
   // Clear all data
   Future<void> clearAll() async {
-    final boxNames = [
-      kUsersBox,
-      kVersesBox,
-      kBlogPostsBox,
-      kChatRoomsBox,
-      kFaithJourneysBox,
-      kReadingHabitsBox,
-      kSubscriptionsBox,
-      kPaymentsBox,
-      kDailyVersesBox,
-      kAppSettingsBox,
-    ];
-    
-    for (final boxName in boxNames) {
-      final box = Hive.box(boxName);
+    for (final box in _allBoxes) {
       await box.clear();
     }
+    await _appSettingsBox.clear();
   }
 
   // ============ USER OPERATIONS ============
 
-  Box<UserModel> get _usersBox => Hive.box<UserModel>(kUsersBox);
+  Future<void> createUser(UserModel user) => _users.put(user.id, user);
 
-  // Create user
-  Future<void> createUser(UserModel user) async {
-    await _usersBox.put(user.id, user);
-  }
+  Future<UserModel?> getUser(String userId) async => _users.get(userId);
 
-  // Get user by ID
-  Future<UserModel?> getUser(String userId) async {
-    return _usersBox.get(userId);
-  }
-
-  // Update user
+  /// [updates] maps UserModel field names to new values.
   Future<void> updateUser(String userId, Map<String, dynamic> updates) async {
-    final user = _usersBox.get(userId);
-    if (user != null) {
-      final updatedUser = user.copyWith(
-        displayName: updates['displayName'] as String? ?? user.displayName,
-        photoUrl: updates['photoUrl'] as String? ?? user.photoUrl,
-        bio: updates['bio'] as String? ?? user.bio,
-        role: updates['role'] as UserRole? ?? user.role,
-        premiumTier: updates['premiumTier'] as PremiumTier? ?? user.premiumTier,
-        followingCount: updates['followingCount'] as int? ?? user.followingCount,
-        followersCount: updates['followersCount'] as int? ?? user.followersCount,
-        savedVersesCount: updates['savedVersesCount'] as int? ?? user.savedVersesCount,
-        likedVersesCount: updates['likedVersesCount'] as int? ?? user.likedVersesCount,
-        blogPostsCount: updates['blogPostsCount'] as int? ?? user.blogPostsCount,
-        savedVerseIds: updates['savedVerseIds'] as List<String>? ?? user.savedVerseIds,
-        likedVerseIds: updates['likedVerseIds'] as List<String>? ?? user.likedVerseIds,
-        bookmarkedBlogPostIds: updates['bookmarkedBlogPostIds'] as List<String>? ?? user.bookmarkedBlogPostIds,
-        readingStats: updates['readingStats'] as Map<String, dynamic>? ?? user.readingStats,
-        consecutiveReadingDays: updates['consecutiveReadingDays'] as int? ?? user.consecutiveReadingDays,
-        totalReadingDays: updates['totalReadingDays'] as int? ?? user.totalReadingDays,
-        streakStartDate: updates['streakStartDate'] as int? ?? user.streakStartDate,
-        badges: updates['badges'] as List<String>? ?? user.badges,
-        hasPaidToSkipLadder: updates['hasPaidToSkipLadder'] as bool? ?? user.hasPaidToSkipLadder,
-        lastReadingDate: updates['lastReadingDate'] as DateTime? ?? user.lastReadingDate,
-        lastNotificationDate: updates['lastNotificationDate'] as DateTime? ?? user.lastNotificationDate,
-        chosenTitle: updates['chosenTitle'] as String? ?? user.chosenTitle,
-        blockedUserIds: updates['blockedUserIds'] as List<String>? ?? user.blockedUserIds,
-        preferences: updates['preferences'] as Map<String, bool>? ?? user.preferences,
-        updatedAt: DateTime.now(),
-      );
-      await _usersBox.put(userId, updatedUser);
-    }
+    await _users.update(userId, {'updatedAt': DateTime.now(), ...updates});
   }
 
-  // Delete user
-  Future<void> deleteUser(String userId) async {
-    await _usersBox.delete(userId);
-  }
+  Future<void> deleteUser(String userId) => _users.delete(userId);
 
-  // Get all users
-  Future<List<UserModel>> getAllUsers() async {
-    return _usersBox.values.toList();
-  }
+  Future<List<UserModel>> getAllUsers() async => _users.values.toList();
 
-  // Search users
   Future<List<UserModel>> searchUsers({String? query, int limit = 20}) async {
-    final allUsers = _usersBox.values.toList();
-    
+    final allUsers = _users.values;
     if (query == null || query.isEmpty) {
       return allUsers.take(limit).toList();
     }
-    
+    final q = query.toLowerCase();
     return allUsers
-        .where((user) => 
-          user.displayName.toLowerCase().contains(query.toLowerCase()) ||
-          user.email.toLowerCase().contains(query.toLowerCase())
-        )
+        .where((user) =>
+            user.displayName.toLowerCase().contains(q) ||
+            user.email.toLowerCase().contains(q))
         .take(limit)
         .toList();
   }
 
-  // Increment user following count
   Future<void> incrementFollowingCount(String userId) async {
-    final user = _usersBox.get(userId);
+    final user = _users.get(userId);
     if (user != null) {
-      final updatedUser = user.copyWith(
-        followingCount: user.followingCount + 1,
-        updatedAt: DateTime.now(),
-      );
-      await _usersBox.put(userId, updatedUser);
+      await updateUser(userId, {'followingCount': user.followingCount + 1});
     }
   }
 
-  // Increment user followers count
   Future<void> incrementFollowersCount(String userId) async {
-    final user = _usersBox.get(userId);
+    final user = _users.get(userId);
     if (user != null) {
-      final updatedUser = user.copyWith(
-        followersCount: user.followersCount + 1,
-        updatedAt: DateTime.now(),
-      );
-      await _usersBox.put(userId, updatedUser);
+      await updateUser(userId, {'followersCount': user.followersCount + 1});
     }
   }
 
-  // Add saved verse to user
   Future<void> addSavedVerse(String userId, String verseId) async {
-    final user = _usersBox.get(userId);
-    if (user != null) {
-      final savedVerseIds = List<String>.from(user.savedVerseIds);
-      if (!savedVerseIds.contains(verseId)) {
-        savedVerseIds.add(verseId);
-      }
-      final updatedUser = user.copyWith(
-        savedVerseIds: savedVerseIds,
-        savedVersesCount: savedVerseIds.length,
-        updatedAt: DateTime.now(),
-      );
-      await _usersBox.put(userId, updatedUser);
-    }
+    final user = _users.get(userId);
+    if (user == null) return;
+    final ids = {...user.savedVerseIds, verseId}.toList();
+    await updateUser(userId, {'savedVerseIds': ids, 'savedVersesCount': ids.length});
   }
 
-  // Remove saved verse from user
   Future<void> removeSavedVerse(String userId, String verseId) async {
-    final user = _usersBox.get(userId);
-    if (user != null) {
-      final savedVerseIds = List<String>.from(user.savedVerseIds);
-      savedVerseIds.remove(verseId);
-      final updatedUser = user.copyWith(
-        savedVerseIds: savedVerseIds,
-        savedVersesCount: savedVerseIds.length,
-        updatedAt: DateTime.now(),
-      );
-      await _usersBox.put(userId, updatedUser);
-    }
+    final user = _users.get(userId);
+    if (user == null) return;
+    final ids = user.savedVerseIds.where((id) => id != verseId).toList();
+    await updateUser(userId, {'savedVerseIds': ids, 'savedVersesCount': ids.length});
   }
 
-  // Add liked verse to user
   Future<void> addLikedVerse(String userId, String verseId) async {
-    final user = _usersBox.get(userId);
-    if (user != null) {
-      final likedVerseIds = List<String>.from(user.likedVerseIds);
-      if (!likedVerseIds.contains(verseId)) {
-        likedVerseIds.add(verseId);
-      }
-      final updatedUser = user.copyWith(
-        likedVerseIds: likedVerseIds,
-        likedVersesCount: likedVerseIds.length,
-        updatedAt: DateTime.now(),
-      );
-      await _usersBox.put(userId, updatedUser);
-    }
+    final user = _users.get(userId);
+    if (user == null) return;
+    final ids = {...user.likedVerseIds, verseId}.toList();
+    await updateUser(userId, {'likedVerseIds': ids, 'likedVersesCount': ids.length});
   }
 
-  // Remove liked verse from user
   Future<void> removeLikedVerse(String userId, String verseId) async {
-    final user = _usersBox.get(userId);
-    if (user != null) {
-      final likedVerseIds = List<String>.from(user.likedVerseIds);
-      likedVerseIds.remove(verseId);
-      final updatedUser = user.copyWith(
-        likedVerseIds: likedVerseIds,
-        likedVersesCount: likedVerseIds.length,
-        updatedAt: DateTime.now(),
-      );
-      await _usersBox.put(userId, updatedUser);
-    }
+    final user = _users.get(userId);
+    if (user == null) return;
+    final ids = user.likedVerseIds.where((id) => id != verseId).toList();
+    await updateUser(userId, {'likedVerseIds': ids, 'likedVersesCount': ids.length});
   }
 
-  // Stream user by ID
-  Stream<UserModel?> streamUser(String userId) {
-    return _usersBox.watch(key: userId).map((event) => event.value);
-  }
+  Stream<UserModel?> streamUser(String userId) => _users.watchKey(userId);
 
   // ============ VERSE OPERATIONS ============
 
-  Box<VerseModel> get _versesBox => Hive.box<VerseModel>(kVersesBox);
+  Future<void> createVerse(VerseModel verse) => _verses.put(verse.id, verse);
 
-  // Create verse
-  Future<void> createVerse(VerseModel verse) async {
-    await _versesBox.put(verse.id, verse);
-  }
+  Future<VerseModel?> getVerse(String verseId) async => _verses.get(verseId);
 
-  // Get verse by ID
-  Future<VerseModel?> getVerse(String verseId) async {
-    return _versesBox.get(verseId);
-  }
-
-  // Update verse
   Future<void> updateVerse(String verseId, Map<String, dynamic> updates) async {
-    final verse = _versesBox.get(verseId);
-    if (verse != null) {
-      final updatedVerse = verse.copyWith(
-        reference: updates['reference'] as String? ?? verse.reference,
-        text: updates['text'] as String? ?? verse.text,
-        book: updates['book'] as String? ?? verse.book,
-        chapter: updates['chapter'] as int? ?? verse.chapter,
-        verse: updates['verse'] as int? ?? verse.verse,
-        translation: updates['translation'] as String? ?? verse.translation,
-        imageUrl: updates['imageUrl'] as String? ?? verse.imageUrl,
-        likes: updates['likes'] as int? ?? verse.likes,
-        saves: updates['saves'] as int? ?? verse.saves,
-        tags: updates['tags'] as List<String>? ?? verse.tags,
-        likedBy: updates['likedBy'] as List<String>? ?? verse.likedBy,
-        savedBy: updates['savedBy'] as List<String>? ?? verse.savedBy,
-      );
-      await _versesBox.put(verseId, updatedVerse);
-    }
+    await _verses.update(verseId, updates);
   }
 
-  // Get all verses
-  Future<List<VerseModel>> getAllVerses() async {
-    return _versesBox.values.toList();
-  }
+  Future<List<VerseModel>> getAllVerses() async => _verses.values.toList();
 
-  // Get verses by book
-  Future<List<VerseModel>> getVersesByBook(String book) async {
-    return _versesBox.values
-        .where((verse) => verse.book == book)
-        .toList();
-  }
+  Future<List<VerseModel>> getVersesByBook(String book) async =>
+      _verses.values.where((verse) => verse.book == book).toList();
 
-  // Get verses by book and chapter
-  Future<List<VerseModel>> getVersesByChapter(String book, int chapter) async {
-    return _versesBox.values
-        .where((verse) => verse.book == book && verse.chapter == chapter)
-        .toList();
-  }
+  Future<List<VerseModel>> getVersesByChapter(String book, int chapter) async =>
+      _verses.values
+          .where((verse) => verse.book == book && verse.chapter == chapter)
+          .sortedBy<num>((verse) => verse.verse);
 
-  // Search verses
-  Future<List<VerseModel>> searchVerses({String? query, String? book, int? chapter, int limit = 50}) async {
-    var verses = _versesBox.values.toList();
-    
-    if (book != null) {
-      verses = verses.where((v) => v.book == book).toList();
-    }
-    if (chapter != null) {
-      verses = verses.where((v) => v.chapter == chapter).toList();
-    }
+  Future<List<VerseModel>> searchVerses({
+    String? query,
+    String? book,
+    int? chapter,
+    int limit = 50,
+  }) async {
+    Iterable<VerseModel> verses = _verses.values;
+    if (book != null) verses = verses.where((v) => v.book == book);
+    if (chapter != null) verses = verses.where((v) => v.chapter == chapter);
     if (query != null && query.isNotEmpty) {
-      verses = verses.where((v) => 
-        v.text.toLowerCase().contains(query.toLowerCase())
-      ).toList();
+      final q = query.toLowerCase();
+      verses = verses.where((v) =>
+          v.text.toLowerCase().contains(q) ||
+          v.reference.toLowerCase().contains(q));
     }
-    
     return verses.take(limit).toList();
   }
 
-  // Get random verse
   Future<VerseModel?> getRandomVerse() async {
-    final verses = _versesBox.values.toList();
+    final verses = _verses.values.toList();
     if (verses.isEmpty) return null;
-    
     final randomIndex = DateTime.now().millisecondsSinceEpoch % verses.length;
-    return verses.elementAt(randomIndex);
+    return verses[randomIndex];
   }
 
-  // Like verse
   Future<void> likeVerse(String verseId, String userId) async {
-    final verse = _versesBox.get(verseId);
-    if (verse != null) {
-      final likedBy = List<String>.from(verse.likedBy);
-      if (!likedBy.contains(userId)) {
-        likedBy.add(userId);
-      }
-      final updatedVerse = verse.copyWith(
-        likes: likedBy.length,
-        likedBy: likedBy,
-      );
-      await _versesBox.put(verseId, updatedVerse);
-    }
+    final verse = _verses.get(verseId);
+    if (verse == null) return;
+    final likedBy = {...verse.likedBy, userId}.toList();
+    await updateVerse(verseId, {'likes': likedBy.length, 'likedBy': likedBy});
   }
 
-  // Unlike verse
   Future<void> unlikeVerse(String verseId, String userId) async {
-    final verse = _versesBox.get(verseId);
-    if (verse != null) {
-      final likedBy = List<String>.from(verse.likedBy);
-      likedBy.remove(userId);
-      final updatedVerse = verse.copyWith(
-        likes: likedBy.length,
-        likedBy: likedBy,
-      );
-      await _versesBox.put(verseId, updatedVerse);
-    }
+    final verse = _verses.get(verseId);
+    if (verse == null) return;
+    final likedBy = verse.likedBy.where((id) => id != userId).toList();
+    await updateVerse(verseId, {'likes': likedBy.length, 'likedBy': likedBy});
   }
 
-  // Save verse
   Future<void> saveVerse(String verseId, String userId) async {
-    final verse = _versesBox.get(verseId);
-    if (verse != null) {
-      final savedBy = List<String>.from(verse.savedBy);
-      if (!savedBy.contains(userId)) {
-        savedBy.add(userId);
-      }
-      final updatedVerse = verse.copyWith(
-        saves: savedBy.length,
-        savedBy: savedBy,
-      );
-      await _versesBox.put(verseId, updatedVerse);
-    }
+    final verse = _verses.get(verseId);
+    if (verse == null) return;
+    final savedBy = {...verse.savedBy, userId}.toList();
+    await updateVerse(verseId, {'saves': savedBy.length, 'savedBy': savedBy});
   }
 
-  // Unsaved verse
   Future<void> unsaveVerse(String verseId, String userId) async {
-    final verse = _versesBox.get(verseId);
-    if (verse != null) {
-      final savedBy = List<String>.from(verse.savedBy);
-      savedBy.remove(userId);
-      final updatedVerse = verse.copyWith(
-        saves: savedBy.length,
-        savedBy: savedBy,
-      );
-      await _versesBox.put(verseId, updatedVerse);
-    }
+    final verse = _verses.get(verseId);
+    if (verse == null) return;
+    final savedBy = verse.savedBy.where((id) => id != userId).toList();
+    await updateVerse(verseId, {'saves': savedBy.length, 'savedBy': savedBy});
   }
 
-  // Delete verse
-  Future<void> deleteVerse(String verseId) async {
-    await _versesBox.delete(verseId);
-  }
+  Future<void> deleteVerse(String verseId) => _verses.delete(verseId);
 
   // ============ DAILY VERSE OPERATIONS ============
 
-  Box<DailyVerseModel> get _dailyVersesBox => Hive.box<DailyVerseModel>(kDailyVersesBox);
+  String _dateKey(DateTime date) =>
+      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
-  // Create daily verse
-  Future<void> createDailyVerse(DailyVerseModel dailyVerse) async {
-    final dateStr = '${dailyVerse.date.year}-${dailyVerse.date.month.toString().padLeft(2, '0')}-${dailyVerse.date.day.toString().padLeft(2, '0')}';
-    await _dailyVersesBox.put(dateStr, dailyVerse);
-  }
+  Future<void> createDailyVerse(DailyVerseModel dailyVerse) =>
+      _dailyVerses.put(_dateKey(dailyVerse.date), dailyVerse);
 
-  // Get daily verse
-  Future<DailyVerseModel?> getDailyVerse(DateTime date) async {
-    final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-    return _dailyVersesBox.get(dateStr);
-  }
+  Future<DailyVerseModel?> getDailyVerse(DateTime date) async =>
+      _dailyVerses.get(_dateKey(date));
 
   // ============ BLOG OPERATIONS ============
 
-  Box<BlogPostModel> get _blogPostsBox => Hive.box<BlogPostModel>(kBlogPostsBox);
-
-  // Create blog post
+  /// Stores [post] and returns its ID (a new one if `post.id` is empty).
   Future<String> createBlogPost(BlogPostModel post) async {
-    final id = _uuid.v4();
-    final postWithId = post.copyWith(id: id);
-    await _blogPostsBox.put(id, postWithId);
+    final id = _idOrNew(post.id);
+    await _blogPosts.put(id, post.copyWith(id: id));
     return id;
   }
 
-  // Get blog post by ID
-  Future<BlogPostModel?> getBlogPost(String postId) async {
-    return _blogPostsBox.get(postId);
-  }
+  Future<BlogPostModel?> getBlogPost(String postId) async => _blogPosts.get(postId);
 
-  // Update blog post
   Future<void> updateBlogPost(String postId, Map<String, dynamic> updates) async {
-    final post = _blogPostsBox.get(postId);
-    if (post != null) {
-      final updatedPost = post.copyWith(
-        title: updates['title'] as String? ?? post.title,
-        content: updates['content'] as String? ?? post.content,
-        authorId: updates['authorId'] as String? ?? post.authorId,
-        category: updates['category'] as BlogCategory? ?? post.category,
-        status: updates['status'] as BlogPostStatus? ?? post.status,
-        tags: updates['tags'] as List<String>? ?? post.tags,
-        views: updates['views'] as int? ?? post.views,
-        likes: updates['likes'] as int? ?? post.likes,
-        comments: updates['comments'] as int? ?? post.comments,
-        isFeatured: updates['isFeatured'] as bool? ?? post.isFeatured,
-        publishedAt: updates['publishedAt'] as DateTime? ?? post.publishedAt,
-        updatedAt: DateTime.now(),
-      );
-      await _blogPostsBox.put(postId, updatedPost);
-    }
+    await _blogPosts.update(postId, {'updatedAt': DateTime.now(), ...updates});
   }
 
-  // Delete blog post
   Future<void> deleteBlogPost(String postId) async {
-    await _blogPostsBox.delete(postId);
+    await _blogPosts.delete(postId);
+    for (final comment in _blogComments.values.where((c) => c.postId == postId).toList()) {
+      await _blogComments.delete(comment.id);
+    }
   }
 
-  // Get all blog posts
-  Future<List<BlogPostModel>> getBlogPosts({int limit = 20, BlogCategory? category, String? authorId, bool featuredOnly = false}) async {
-    var posts = _blogPostsBox.values.toList();
-    
-    posts = posts.where((post) => post.status == BlogPostStatus.published).toList();
-    
-    if (category != null) {
-      posts = posts.where((post) => post.category == category).toList();
-    }
-    if (authorId != null) {
-      posts = posts.where((post) => post.authorId == authorId).toList();
-    }
-    if (featuredOnly) {
-      posts = posts.where((post) => post.isFeatured).toList();
-    }
-    
-    // Sort by publishedAt descending
-    posts.sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
-    
-    return posts.take(limit).toList();
-  }
+  Iterable<BlogPostModel> get _publishedPosts =>
+      _blogPosts.values.where((post) => post.status == BlogPostStatus.published);
 
-  // Get all blog posts (no filtering)
-  Future<List<BlogPostModel>> getAllBlogPosts() async {
-    return _blogPostsBox.values.toList();
-  }
-
-  // Get featured blog posts
-  Future<List<BlogPostModel>> getFeaturedBlogPosts(int limit) async {
-    return _blogPostsBox.values
-        .where((post) => post.isFeatured && post.status == BlogPostStatus.published)
-        .toList()
-        ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt))
+  Future<List<BlogPostModel>> getBlogPosts({
+    int limit = 20,
+    BlogCategory? category,
+    String? authorId,
+    bool featuredOnly = false,
+  }) async {
+    var posts = _publishedPosts;
+    if (category != null) posts = posts.where((p) => p.category == category);
+    if (authorId != null) posts = posts.where((p) => p.authorId == authorId);
+    if (featuredOnly) posts = posts.where((p) => p.isFeatured);
+    return posts
+        .sorted((a, b) => compareNewestFirst(a.publishedAt, b.publishedAt))
         .take(limit)
         .toList();
   }
 
-  // Get popular blog posts
-  Future<List<BlogPostModel>> getPopularBlogPosts(int limit) async {
-    return _blogPostsBox.values
-        .where((post) => post.status == BlogPostStatus.published)
-        .toList()
-        ..sort((a, b) => b.views.compareTo(a.views))
-        .take(limit)
-        .toList();
-  }
+  Future<List<BlogPostModel>> getAllBlogPosts() async => _blogPosts.values.toList();
 
-  // Get user blog posts
-  Future<List<BlogPostModel>> getUserBlogPosts(String userId, int limit) async {
-    return _blogPostsBox.values
-        .where((post) => post.authorId == userId && post.status == BlogPostStatus.published)
-        .toList()
-        ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt))
-        .take(limit)
-        .toList();
-  }
+  Future<List<BlogPostModel>> getFeaturedBlogPosts(int limit) =>
+      getBlogPosts(limit: limit, featuredOnly: true);
 
-  // Increment blog post views
+  Future<List<BlogPostModel>> getPopularBlogPosts(int limit) async =>
+      _publishedPosts.sorted((a, b) => b.views.compareTo(a.views)).take(limit).toList();
+
+  Future<List<BlogPostModel>> getUserBlogPosts(String userId, int limit) =>
+      getBlogPosts(limit: limit, authorId: userId);
+
   Future<void> incrementBlogPostViews(String postId) async {
-    final post = _blogPostsBox.get(postId);
+    final post = _blogPosts.get(postId);
     if (post != null) {
-      final updatedPost = post.copyWith(
-        views: post.views + 1,
-      );
-      await _blogPostsBox.put(postId, updatedPost);
+      await _blogPosts.update(postId, {'views': post.views + 1});
     }
   }
 
-  // Like blog post
   Future<void> likeBlogPost(String postId, String userId) async {
-    final post = _blogPostsBox.get(postId);
+    final post = _blogPosts.get(postId);
+    if (post == null) return;
+    final likedBy = {...post.likedBy, userId}.toList();
+    await _blogPosts.update(postId, {'likes': likedBy.length, 'likedBy': likedBy});
+  }
+
+  Future<void> unlikeBlogPost(String postId, String userId) async {
+    final post = _blogPosts.get(postId);
+    if (post == null) return;
+    final likedBy = post.likedBy.where((id) => id != userId).toList();
+    await _blogPosts.update(postId, {'likes': likedBy.length, 'likedBy': likedBy});
+  }
+
+  Future<void> bookmarkBlogPost(String postId, String userId) async {
+    final post = _blogPosts.get(postId);
     if (post != null) {
-      final likedBy = List<String>.from(post.likedBy);
-      if (!likedBy.contains(userId)) {
-        likedBy.add(userId);
-      }
-      final updatedPost = post.copyWith(
-        likes: likedBy.length,
-        likedBy: likedBy,
-      );
-      await _blogPostsBox.put(postId, updatedPost);
+      await _blogPosts.update(postId, {
+        'bookmarkedBy': {...post.bookmarkedBy, userId}.toList(),
+      });
+    }
+    final user = _users.get(userId);
+    if (user != null) {
+      await updateUser(userId, {
+        'bookmarkedBlogPostIds': {...user.bookmarkedBlogPostIds, postId}.toList(),
+      });
     }
   }
 
-  // Unlike blog post
-  Future<void> unlikeBlogPost(String postId, String userId) async {
-    final post = _blogPostsBox.get(postId);
+  Future<void> removeBookmarkBlogPost(String postId, String userId) async {
+    final post = _blogPosts.get(postId);
     if (post != null) {
-      final likedBy = List<String>.from(post.likedBy);
-      likedBy.remove(userId);
-      final updatedPost = post.copyWith(
-        likes: likedBy.length,
-        likedBy: likedBy,
-      );
-      await _blogPostsBox.put(postId, updatedPost);
+      await _blogPosts.update(postId, {
+        'bookmarkedBy': post.bookmarkedBy.where((id) => id != userId).toList(),
+      });
     }
+    final user = _users.get(userId);
+    if (user != null) {
+      await updateUser(userId, {
+        'bookmarkedBlogPostIds':
+            user.bookmarkedBlogPostIds.where((id) => id != postId).toList(),
+      });
+    }
+  }
+
+  // ============ BLOG COMMENT OPERATIONS ============
+
+  /// Stores [comment], bumps the post's comment count and returns the ID.
+  Future<String> createBlogComment(BlogCommentModel comment) async {
+    final id = _idOrNew(comment.id);
+    await _blogComments.put(
+      id,
+      comment.copyWith(id: id, createdAt: comment.createdAt ?? DateTime.now()),
+    );
+    final post = _blogPosts.get(comment.postId);
+    if (post != null) {
+      await _blogPosts.update(comment.postId, {'comments': post.comments + 1});
+    }
+    return id;
+  }
+
+  /// Comments for [postId], oldest first.
+  Future<List<BlogCommentModel>> getBlogComments(String postId) async => _blogComments
+      .values
+      .where((c) => c.postId == postId && !c.isDeleted)
+      .sorted((a, b) => compareNewestFirst(b.createdAt, a.createdAt));
+
+  Future<void> likeBlogComment(String postId, String commentId, String userId) async {
+    final comment = _blogComments.get(commentId);
+    if (comment == null) return;
+    await _blogComments.update(commentId, {
+      'likes': {...comment.likes, userId}.toList(),
+    });
+  }
+
+  Future<void> unlikeBlogComment(String postId, String commentId, String userId) async {
+    final comment = _blogComments.get(commentId);
+    if (comment == null) return;
+    await _blogComments.update(commentId, {
+      'likes': comment.likes.where((id) => id != userId).toList(),
+    });
   }
 
   // ============ CHAT OPERATIONS ============
 
-  Box<ChatRoomModel> get _chatRoomsBox => Hive.box<ChatRoomModel>(kChatRoomsBox);
-
-  // Create chat room
+  /// Stores [room] and returns its ID (a new one if `room.id` is empty).
   Future<String> createChatRoom(ChatRoomModel room) async {
-    final id = _uuid.v4();
-    final roomWithId = room.copyWith(id: id);
-    await _chatRoomsBox.put(id, roomWithId);
+    final id = _idOrNew(room.id);
+    await _chatRooms.put(id, room.copyWith(id: id));
     return id;
   }
 
-  // Get chat room by ID
-  Future<ChatRoomModel?> getChatRoom(String roomId) async {
-    return _chatRoomsBox.get(roomId);
-  }
+  Future<ChatRoomModel?> getChatRoom(String roomId) async => _chatRooms.get(roomId);
 
-  // Get all chat rooms
   Future<List<ChatRoomModel>> getChatRooms({ChatRoomType? type, int limit = 50}) async {
-    var rooms = _chatRoomsBox.values.toList();
-    
-    rooms = rooms.where((room) => !room.isArchived).toList();
-    
-    if (type != null) {
-      rooms = rooms.where((room) => room.type == type).toList();
-    }
-    
-    // Sort by lastMessageAt descending
-    rooms.sort((a, b) => b.lastMessageAt.compareTo(a.lastMessageAt));
-    
-    return rooms.take(limit).toList();
-  }
-
-  // Get all chat rooms (no filtering)
-  Future<List<ChatRoomModel>> getAllChatRooms() async {
-    return _chatRoomsBox.values.toList();
-  }
-
-  // Get general chat room
-  Future<ChatRoomModel?> getGeneralChatRoom() async {
-    return _chatRoomsBox.values
-        .firstWhere(
-          (room) => room.type == ChatRoomType.general && room.name == 'Gospel Discussions',
-          orElse: () => null,
-        );
-  }
-
-  // Create chat message
-  Future<String> createChatMessage(ChatMessageModel message) async {
-    final id = _uuid.v4();
-    final messageWithId = message.copyWith(id: id);
-    
-    // Get or create messages sub-box
-    final messagesBox = Hive.box<ChatMessageModel>('${kChatRoomsBox}_messages_${message.roomId}');
-    await messagesBox.put(id, messageWithId);
-    
-    // Update room
-    final room = _chatRoomsBox.get(message.roomId);
-    if (room != null) {
-      final updatedRoom = room.copyWith(
-        lastMessageId: id,
-        lastMessageSenderId: message.senderId,
-        lastMessageContent: message.content,
-        lastMessageAt: DateTime.now(),
-        messageCount: room.messageCount + 1,
-      );
-      await _chatRoomsBox.put(message.roomId, updatedRoom);
-    }
-    
-    return id;
-  }
-
-  // Get chat messages
-  Stream<List<ChatMessageModel>> streamChatMessages(String roomId) {
-    final messagesBox = Hive.box<ChatMessageModel>('${kChatRoomsBox}_messages_${roomId}');
-    return messagesBox.watch().map((event) => event.values.toList());
-  }
-
-  // Get recent chat messages
-  Future<List<ChatMessageModel>> getRecentChatMessages(String roomId, {int limit = 50}) async {
-    final messagesBox = Hive.box<ChatMessageModel>('${kChatRoomsBox}_messages_${roomId}');
-    return messagesBox.values
-        .toList()
-        ..sort((a, b) => b.createdAt.compareTo(a.createdAt))
+    var rooms = _chatRooms.values.where((room) => !room.isArchived);
+    if (type != null) rooms = rooms.where((room) => room.type == type);
+    return rooms
+        .sorted((a, b) => compareNewestFirst(a.lastMessageAt, b.lastMessageAt))
         .take(limit)
         .toList();
   }
 
-  // Join chat room
+  Future<List<ChatRoomModel>> getAllChatRooms() async => _chatRooms.values.toList();
+
+  Future<ChatRoomModel?> getGeneralChatRoom() async => _chatRooms.values.firstWhereOrNull(
+      (room) => room.type == ChatRoomType.general && room.name == 'Gospel Discussions');
+
+  /// Stores [message], updates the room's last-message info and returns the ID.
+  Future<String> createChatMessage(ChatMessageModel message) async {
+    final id = _idOrNew(message.id);
+    final now = DateTime.now();
+    await _chatMessages.put(
+      id,
+      message.copyWith(id: id, createdAt: message.createdAt ?? now),
+    );
+
+    final room = _chatRooms.get(message.roomId);
+    if (room != null) {
+      await _chatRooms.update(message.roomId, {
+        'lastMessageId': id,
+        'lastMessageSenderId': message.senderId,
+        'lastMessageContent': message.content,
+        'lastMessageAt': now,
+        'messageCount': room.messageCount + 1,
+      });
+    }
+    return id;
+  }
+
+  List<ChatMessageModel> _roomMessages(String roomId) => _chatMessages.values
+      .where((m) => m.roomId == roomId)
+      .sorted((a, b) => compareNewestFirst(b.createdAt, a.createdAt));
+
+  /// Messages in [roomId], oldest first; emits again on every change.
+  Stream<List<ChatMessageModel>> streamChatMessages(String roomId) async* {
+    yield _roomMessages(roomId);
+    yield* _chatMessages.watchAll().map((_) => _roomMessages(roomId));
+  }
+
+  /// The most recent [limit] messages in [roomId], oldest first.
+  Future<List<ChatMessageModel>> getChatMessages(String roomId, {int limit = 50}) async {
+    final messages = _roomMessages(roomId);
+    return messages.sublist(messages.length > limit ? messages.length - limit : 0);
+  }
+
+  Future<List<ChatMessageModel>> getRecentChatMessages(String roomId, {int limit = 50}) =>
+      getChatMessages(roomId, limit: limit);
+
+  Future<void> updateChatMessage(
+      String roomId, String messageId, Map<String, dynamic> updates) async {
+    await _chatMessages.update(messageId, {'updatedAt': DateTime.now(), ...updates});
+  }
+
+  Future<void> likeChatMessage(String roomId, String messageId, String userId) async {
+    final message = _chatMessages.get(messageId);
+    if (message == null) return;
+    final likedBy = {...message.likedBy, userId}.toList();
+    await _chatMessages.update(messageId, {'likedBy': likedBy, 'likes': likedBy.length});
+  }
+
   Future<void> joinChatRoom(String roomId, String userId) async {
-    final room = _chatRoomsBox.get(roomId);
-    if (room != null) {
-      final memberIds = List<String>.from(room.memberIds);
-      if (!memberIds.contains(userId)) {
-        memberIds.add(userId);
-      }
-      final memberJoinDates = Map<String, DateTime>.from(room.memberJoinDates);
-      memberJoinDates[userId] = DateTime.now();
-      
-      final updatedRoom = room.copyWith(
-        memberIds: memberIds,
-        memberJoinDates: memberJoinDates,
-      );
-      await _chatRoomsBox.put(roomId, updatedRoom);
-    }
+    final room = _chatRooms.get(roomId);
+    if (room == null) return;
+    await _chatRooms.update(roomId, {
+      'memberIds': {...room.memberIds, userId}.toList(),
+      'memberJoinDates': {...room.memberJoinDates, userId: DateTime.now()},
+    });
   }
 
-  // Leave chat room
   Future<void> leaveChatRoom(String roomId, String userId) async {
-    final room = _chatRoomsBox.get(roomId);
-    if (room != null) {
-      final memberIds = List<String>.from(room.memberIds);
-      memberIds.remove(userId);
-      final memberJoinDates = Map<String, DateTime>.from(room.memberJoinDates);
-      memberJoinDates.remove(userId);
-      
-      final updatedRoom = room.copyWith(
-        memberIds: memberIds,
-        memberJoinDates: memberJoinDates,
-      );
-      await _chatRoomsBox.put(roomId, updatedRoom);
-    }
+    final room = _chatRooms.get(roomId);
+    if (room == null) return;
+    await _chatRooms.update(roomId, {
+      'memberIds': room.memberIds.where((id) => id != userId).toList(),
+      'memberJoinDates': Map.of(room.memberJoinDates)..remove(userId),
+    });
   }
 
-  // Update chat room
   Future<void> updateChatRoom(String roomId, Map<String, dynamic> updates) async {
-    final room = _chatRoomsBox.get(roomId);
-    if (room != null) {
-      final updatedRoom = room.copyWith(
-        name: updates['name'] as String? ?? room.name,
-        description: updates['description'] as String? ?? room.description,
-        coverImageUrl: updates['coverImageUrl'] as String? ?? room.coverImageUrl,
-        memberIds: updates['memberIds'] as List<String>? ?? room.memberIds,
-        adminIds: updates['adminIds'] as List<String>? ?? room.adminIds,
-        moderatorIds: updates['moderatorIds'] as List<String>? ?? room.moderatorIds,
-        messageCount: updates['messageCount'] as int? ?? room.messageCount,
-        unreadCount: updates['unreadCount'] as int? ?? room.unreadCount,
-        lastMessageAt: updates['lastMessageAt'] as DateTime? ?? room.lastMessageAt,
-        lastMessageId: updates['lastMessageId'] as String? ?? room.lastMessageId,
-        lastMessageSenderId: updates['lastMessageSenderId'] as String? ?? room.lastMessageSenderId,
-        lastMessageContent: updates['lastMessageContent'] as String? ?? room.lastMessageContent,
-        isPrivate: updates['isPrivate'] as bool? ?? room.isPrivate,
-        isArchived: updates['isArchived'] as bool? ?? room.isArchived,
-        tags: updates['tags'] as List<String>? ?? room.tags,
-        memberJoinDates: updates['memberJoinDates'] as Map<String, DateTime>? ?? room.memberJoinDates,
-      );
-      await _chatRoomsBox.put(roomId, updatedRoom);
-    }
+    await _chatRooms.update(roomId, {'updatedAt': DateTime.now(), ...updates});
   }
 
-  // Delete chat room
   Future<void> deleteChatRoom(String roomId) async {
-    await _chatRoomsBox.delete(roomId);
+    await _chatRooms.delete(roomId);
+    for (final message in _roomMessages(roomId)) {
+      await _chatMessages.delete(message.id);
+    }
   }
 
   // ============ FAITH JOURNEY OPERATIONS ============
 
-  Box<FaithJourney> get _faithJourneyBox => Hive.box<FaithJourney>(kFaithJourneysBox);
+  Future<void> createFaithJourney(FaithJourney journey) =>
+      _faithJourneys.put(journey.userId, journey);
 
-  // Create faith journey
-  Future<void> createFaithJourney(FaithJourney journey) async {
-    await _faithJourneyBox.put(journey.userId, journey);
-  }
+  Future<FaithJourney?> getFaithJourney(String userId) async => _faithJourneys.get(userId);
 
-  // Get faith journey by user ID
-  Future<FaithJourney?> getFaithJourney(String userId) async {
-    return _faithJourneyBox.get(userId);
-  }
-
-  // Update faith journey
   Future<void> updateFaithJourney(String userId, Map<String, dynamic> updates) async {
-    final journey = _faithJourneyBox.get(userId);
-    if (journey != null) {
-      final updatedJourney = journey.copyWith(
-        userId: updates['userId'] as String? ?? journey.userId,
-        currentRole: updates['currentRole'] as UserRole? ?? journey.currentRole,
-        progressList: updates['progressList'] as List<FaithProgress>? ?? journey.progressList,
-        milestones: updates['milestones'] as List<FaithMilestone>? ?? journey.milestones,
-        startedAt: updates['startedAt'] as DateTime? ?? journey.startedAt,
-        lastUpdatedAt: DateTime.now(),
-      );
-      await _faithJourneyBox.put(userId, updatedJourney);
-    }
+    await _faithJourneys.update(userId, {'lastUpdatedAt': DateTime.now(), ...updates});
   }
 
-  // Delete faith journey
-  Future<void> deleteFaithJourney(String userId) async {
-    await _faithJourneyBox.delete(userId);
-  }
+  Future<void> deleteFaithJourney(String userId) => _faithJourneys.delete(userId);
 
-  // Stream faith journey
-  Stream<FaithJourney?> streamFaithJourney(String userId) {
-    return _faithJourneyBox.watch(key: userId).map((event) => event.value);
-  }
+  Stream<FaithJourney?> streamFaithJourney(String userId) => _faithJourneys.watchKey(userId);
 
   // ============ READING HABIT OPERATIONS ============
 
-  Box<ReadingHabit> get _readingHabitBox => Hive.box<ReadingHabit>(kReadingHabitsBox);
+  Future<ReadingHabit?> getReadingHabit(String userId) async => _readingHabits.get(userId);
 
-  // Get reading habit
-  Future<ReadingHabit?> getReadingHabit(String userId) async {
-    return _readingHabitBox.get(userId);
-  }
-
-  // Update reading habit
   Future<void> updateReadingHabit(String userId, Map<String, dynamic> updates) async {
-    final habit = _readingHabitBox.get(userId);
-    if (habit != null) {
-      final updatedHabit = habit.copyWith(
-        userId: updates['userId'] as String? ?? habit.userId,
-        preferredHours: updates['preferredHours'] as List<int>? ?? habit.preferredHours,
-        preferredDays: updates['preferredDays'] as List<int>? ?? habit.preferredDays,
-        notificationsEnabled: updates['notificationsEnabled'] as bool? ?? habit.notificationsEnabled,
-        recentSessions: updates['recentSessions'] as List<ReadingSession>? ?? habit.recentSessions,
-        averageReadsPerDay: updates['averageReadsPerDay'] as double? ?? habit.averageReadsPerDay,
-        averageDurationMinutes: updates['averageDurationMinutes'] as int? ?? habit.averageDurationMinutes,
-        updatedAt: DateTime.now(),
-      );
-      await _readingHabitBox.put(userId, updatedHabit);
-    }
+    await _readingHabits.update(userId, updates);
   }
 
-  // Create reading habit
-  Future<void> createReadingHabit(ReadingHabit habit) async {
-    await _readingHabitBox.put(habit.userId, habit);
-  }
+  Future<void> createReadingHabit(ReadingHabit habit) =>
+      _readingHabits.put(habit.userId, habit);
 
-  // Delete reading habit
-  Future<void> deleteReadingHabit(String userId) async {
-    await _readingHabitBox.delete(userId);
-  }
+  Future<void> deleteReadingHabit(String userId) => _readingHabits.delete(userId);
 
-  // Stream reading habit
-  Stream<ReadingHabit?> streamReadingHabit(String userId) {
-    return _readingHabitBox.watch(key: userId).map((event) => event.value);
-  }
+  Stream<ReadingHabit?> streamReadingHabit(String userId) => _readingHabits.watchKey(userId);
 
-  // Record reading session
-  Future<void> recordReadingSession(ReadingSession session) async {
-    final sessionsBox = Hive.box<ReadingSession>('${kReadingHabitsBox}_sessions_${session.userId}');
-    await sessionsBox.put(session.id, session);
-  }
+  Future<void> recordReadingSession(ReadingSession session) =>
+      _readingSessions.put(session.id, session);
+
+  Future<List<ReadingSession>> getReadingSessions(String userId) async => _readingSessions
+      .values
+      .where((s) => s.userId == userId)
+      .sorted((a, b) => b.startedAt.compareTo(a.startedAt));
 
   // ============ SUBSCRIPTION OPERATIONS ============
 
-  Box<Subscription> get _subscriptionsBox => Hive.box<Subscription>(kSubscriptionsBox);
-
-  // Create subscription
+  /// Stores [subscription] and returns its ID (a new one if its ID is empty).
   Future<String> createSubscription(Subscription subscription) async {
-    final id = _uuid.v4();
-    final subscriptionWithId = subscription.copyWith(id: id);
-    await _subscriptionsBox.put(id, subscriptionWithId);
+    final id = _idOrNew(subscription.id);
+    await _subscriptions.put(id, subscription.copyWith(id: id));
     return id;
   }
 
-  // Get active subscription
-  Future<Subscription?> getActiveSubscription(String userId) async {
-    return _subscriptionsBox.values
-        .where((sub) => sub.userId == userId && sub.isActive)
-        .toList()
-        ..sort((a, b) => b.endDate.compareTo(a.endDate))
-        .firstOrNull;
-  }
+  /// The active subscription for [userId] that ends last, if any.
+  Future<Subscription?> getActiveSubscription(String userId) async => _subscriptions.values
+      .where((sub) => sub.userId == userId && sub.isActive)
+      .sorted((a, b) => b.endDate.compareTo(a.endDate))
+      .firstOrNull;
 
-  // Get user subscriptions
-  Future<List<Subscription>> getUserSubscriptions(String userId) async {
-    return _subscriptionsBox.values
-        .where((sub) => sub.userId == userId)
-        .toList()
-        ..sort((a, b) => b.startDate.compareTo(a.startDate));
-  }
+  Future<List<Subscription>> getUserSubscriptions(String userId) async => _subscriptions
+      .values
+      .where((sub) => sub.userId == userId)
+      .sorted((a, b) => b.startDate.compareTo(a.startDate));
 
-  // Get subscription by ID
-  Future<Subscription?> getSubscription(String subscriptionId) async {
-    return _subscriptionsBox.get(subscriptionId);
-  }
+  Future<Subscription?> getSubscription(String subscriptionId) async =>
+      _subscriptions.get(subscriptionId);
 
-  // Update subscription
   Future<void> updateSubscription(String subscriptionId, Map<String, dynamic> updates) async {
-    final sub = _subscriptionsBox.get(subscriptionId);
-    if (sub != null) {
-      final updatedSub = sub.copyWith(
-        userId: updates['userId'] as String? ?? sub.userId,
-        plan: updates['plan'] as SubscriptionPlan? ?? sub.plan,
-        startDate: updates['startDate'] as DateTime? ?? sub.startDate,
-        endDate: updates['endDate'] as DateTime? ?? sub.endDate,
-        status: updates['status'] as PaymentStatus? ?? sub.status,
-        paymentMethod: updates['paymentMethod'] as PaymentMethod? ?? sub.paymentMethod,
-        amount: updates['amount'] as double? ?? sub.amount,
-        transactionId: updates['transactionId'] as String? ?? sub.transactionId,
-        autoRenew: updates['autoRenew'] as bool? ?? sub.autoRenew,
-        isActive: updates['isActive'] as bool? ?? sub.isActive,
-        isCancelled: updates['isCancelled'] as bool? ?? sub.isCancelled,
-      );
-      await _subscriptionsBox.put(subscriptionId, updatedSub);
-    }
+    await _subscriptions.update(subscriptionId, {'updatedAt': DateTime.now(), ...updates});
   }
 
-  // Delete subscription
-  Future<void> deleteSubscription(String subscriptionId) async {
-    await _subscriptionsBox.delete(subscriptionId);
-  }
+  Future<void> deleteSubscription(String subscriptionId) =>
+      _subscriptions.delete(subscriptionId);
 
   // ============ PAYMENT OPERATIONS ============
 
-  Box<Payment> get _paymentsBox => Hive.box<Payment>(kPaymentsBox);
-
-  // Create payment
+  /// Stores [payment] and returns its ID (a new one if its ID is empty).
   Future<String> createPayment(Payment payment) async {
-    final id = _uuid.v4();
-    final paymentWithId = payment.copyWith(id: id);
-    await _paymentsBox.put(id, paymentWithId);
+    final id = _idOrNew(payment.id);
+    await _payments.put(id, payment.copyWith(id: id));
     return id;
   }
 
-  // Get payment by ID
-  Future<Payment?> getPayment(String paymentId) async {
-    return _paymentsBox.get(paymentId);
-  }
+  Future<Payment?> getPayment(String paymentId) async => _payments.get(paymentId);
 
-  // Get user payments
-  Future<List<Payment>> getUserPayments(String userId) async {
-    return _paymentsBox.values
-        .where((p) => p.userId == userId)
-        .toList()
-        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-  }
+  Future<List<Payment>> getUserPayments(String userId) async => _payments.values
+      .where((p) => p.userId == userId)
+      .sorted((a, b) => compareNewestFirst(a.createdAt, b.createdAt));
 
-  // Update payment
   Future<void> updatePayment(String paymentId, Map<String, dynamic> updates) async {
-    final payment = _paymentsBox.get(paymentId);
-    if (payment != null) {
-      final updatedPayment = payment.copyWith(
-        userId: updates['userId'] as String? ?? payment.userId,
-        amount: updates['amount'] as double? ?? payment.amount,
-        currency: updates['currency'] as String? ?? payment.currency,
-        method: updates['method'] as PaymentMethod? ?? payment.method,
-        status: updates['status'] as PaymentStatus? ?? payment.status,
-        transactionId: updates['transactionId'] as String? ?? payment.transactionId,
-        reference: updates['reference'] as String? ?? payment.reference,
-        description: updates['description'] as String? ?? payment.description,
-        completedAt: updates['completedAt'] as DateTime? ?? payment.completedAt,
-      );
-      await _paymentsBox.put(paymentId, updatedPayment);
-    }
+    await _payments.update(paymentId, updates);
   }
 
-  // Delete payment
-  Future<void> deletePayment(String paymentId) async {
-    await _paymentsBox.delete(paymentId);
-  }
+  Future<void> deletePayment(String paymentId) => _payments.delete(paymentId);
 
   // ============ APP SETTINGS ============
 
   Box get _appSettingsBox => Hive.box(kAppSettingsBox);
 
-  // Get app setting
-  T? getAppSetting<T>(String key) {
-    return _appSettingsBox.get(key);
-  }
+  T? getAppSetting<T>(String key) => _appSettingsBox.get(key) as T?;
 
-  // Set app setting
   Future<void> setAppSetting(String key, dynamic value) async {
     await _appSettingsBox.put(key, value);
   }
 
   // ============ MODERATION OPERATIONS ============
 
-  Box<ModerationReportModel> get _moderationReportsBox => Hive.box<ModerationReportModel>('moderation_reports');
+  Future<void> createModerationReport(ModerationReportModel report) =>
+      _moderationReports.put(report.id, report);
 
-  // Create moderation report
-  Future<void> createModerationReport(ModerationReportModel report) async {
-    await _moderationReportsBox.put(report.id, report);
-  }
+  Future<ModerationReportModel?> getModerationReport(String reportId) async =>
+      _moderationReports.get(reportId);
 
-  // Get moderation report
-  Future<ModerationReportModel?> getModerationReport(String reportId) async {
-    return _moderationReportsBox.get(reportId);
-  }
-
-  // Get moderation reports
-  Future<List<ModerationReportModel>> getModerationReports({ModerationStatus? status, int limit = 50}) async {
-    var reports = _moderationReportsBox.values.toList();
-    if (status != null) {
-      reports = reports.where((r) => r.status == status).toList();
-    }
+  Future<List<ModerationReportModel>> getModerationReports({
+    ModerationStatus? status,
+    int limit = 50,
+  }) async {
+    var reports = _moderationReports.values;
+    if (status != null) reports = reports.where((r) => r.status == status);
     return reports.take(limit).toList();
   }
 
-  // Update moderation report
   Future<void> updateModerationReport(String reportId, Map<String, dynamic> updates) async {
-    final report = _moderationReportsBox.get(reportId);
-    if (report != null) {
-      final updatedReport = report.copyWith(
-        status: updates['status'] as ModerationStatus? ?? report.status,
-        reviewedBy: updates['reviewedBy'] as String? ?? report.reviewedBy,
-        reviewedAt: updates['reviewedAt'] as DateTime? ?? report.reviewedAt,
-        actionTaken: updates['actionTaken'] as bool? ?? report.actionTaken,
-        actionDescription: updates['actionDescription'] as String? ?? report.actionDescription,
-      );
-      await _moderationReportsBox.put(reportId, updatedReport);
-    }
+    await _moderationReports.update(reportId, updates);
   }
 
-  // Delete moderation report
-  Future<void> deleteModerationReport(String reportId) async {
-    await _moderationReportsBox.delete(reportId);
-  }
+  Future<void> deleteModerationReport(String reportId) =>
+      _moderationReports.delete(reportId);
 
   // ============ BATCH OPERATIONS ============
 
-  // Batch write
-  Future<void> batchWrite(List<Function> operations) async {
+  // Hive has no batch API, so operations run one after another.
+  Future<void> batchWrite(List<Future<void> Function()> operations) async {
     for (final operation in operations) {
       await operation();
     }

@@ -3,10 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/theme.dart';
 import '../../models/verse_model.dart';
-import '../../services/auth_service.dart';
+import '../../services/local_auth_service.dart';
 import '../../services/bible_service.dart';
-import '../../services/database_service.dart';
-import '../../widgets/verse_card.dart';
+import '../../services/local_storage_service.dart';
 
 class DailyVerseScreen extends ConsumerStatefulWidget {
   const DailyVerseScreen({super.key});
@@ -29,7 +28,7 @@ class _DailyVerseScreenState extends ConsumerState<DailyVerseScreen> {
 
   Future<void> _loadDailyVerse() async {
     try {
-      final dailyVerseModel = await ref.read(mockBibleServiceProvider).getDailyVerse();
+      final dailyVerseModel = await ref.read(bibleServiceProvider).getDailyVerse();
       if (dailyVerseModel != null) {
         setState(() {
           _dailyVerse = dailyVerseModel.verse;

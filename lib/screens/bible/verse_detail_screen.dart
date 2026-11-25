@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/theme.dart';
 import '../../models/verse_model.dart';
-import '../../services/auth_service.dart';
+import '../../services/local_auth_service.dart';
 import '../../services/bible_service.dart';
-import '../../services/database_service.dart';
 import '../../widgets/verse_card.dart';
+import '../../services/local_storage_service.dart';
 
 class VerseDetailScreen extends ConsumerStatefulWidget {
   final String verseId;
@@ -32,7 +32,7 @@ class _VerseDetailScreenState extends ConsumerState<VerseDetailScreen> {
 
   Future<void> _loadVerse() async {
     try {
-      final verse = await ref.read(mockBibleServiceProvider).getVerse(widget.verseId);
+      final verse = await ref.read(bibleServiceProvider).getVerse(widget.verseId);
       if (verse != null) {
         setState(() {
           _verse = verse;
@@ -51,7 +51,7 @@ class _VerseDetailScreenState extends ConsumerState<VerseDetailScreen> {
         }
         
         // Load related verses (from same chapter)
-        final chapterVerses = await ref.read(mockBibleServiceProvider).getVersesByChapter(
+        final chapterVerses = await ref.read(bibleServiceProvider).getVersesByChapter(
               verse.book,
               verse.chapter,
             );

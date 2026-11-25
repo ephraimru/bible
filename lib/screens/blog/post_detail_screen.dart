@@ -5,10 +5,9 @@ import 'package:intl/intl.dart';
 
 import '../../config/theme.dart';
 import '../../models/blog_model.dart';
-import '../../models/user_model.dart';
-import '../../services/auth_service.dart';
-import '../../services/database_service.dart';
+import '../../services/local_auth_service.dart';
 import '../../widgets/comment_section.dart';
+import '../../services/local_storage_service.dart';
 
 class PostDetailScreen extends ConsumerStatefulWidget {
   final String postId;
@@ -439,25 +438,5 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
         ),
       ),
     );
-  }
-}
-
-// Category extension for display names
-extension on BlogCategory {
-  String get displayName {
-    switch (this) {
-      case BlogCategory.devotionals:
-        return 'Devotionals';
-      case BlogCategory.sermons:
-        return 'Sermons';
-      case BlogCategory.testimonies:
-        return 'Testimonies';
-      case BlogCategory.bibleStudy:
-        return 'Bible Study';
-      case BlogCategory.faithJourney:
-        return 'Faith Journey';
-      case BlogCategory.gospelReflections:
-        return 'Gospel Reflections';
-    }
   }
 }

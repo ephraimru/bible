@@ -7,8 +7,6 @@ import '../../models/user_model.dart';
 import '../../services/local_auth_service.dart';
 import '../../services/local_storage_service.dart';
 import '../../services/faith_journey_service.dart';
-import '../../services/notification_service.dart';
-import '../../services/mock_bible_service.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -18,10 +16,27 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  // Daily reminder time ("HH:mm"), stored on the user's reading habit.
+  String _reminderTime = '09:00';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReminderTime();
+  }
+
+  Future<void> _loadReminderTime() async {
+    final userId = ref.read(localAuthServiceProvider).currentUserId;
+    if (userId == null) return;
+    final habit = await ref.read(faithJourneyServiceProvider).getReadingHabit(userId);
+    if (habit != null && mounted) {
+      setState(() => _reminderTime = habit.reminderTime);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(localCurrentUserProvider);
-    final notificationService = ref.watch(notificationServiceProvider);
+    final user = ref.watch(localCurrentUserProvider).value;
     
     if (user == null) {
       return Scaffold(
@@ -157,7 +172,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ListTile(
                       leading: const Icon(Icons.schedule, color: Colors.green),
                       title: const Text('Reminder Time'),
-                      subtitle: Text(user.preferences['reminderTime'] ?? '09:00'),
+                      subtitle: Text(_reminderTime),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                       onTap: _showTimePicker,
                     ),
@@ -286,37 +301,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _updatePreference(String userId, String key, bool value) async {
-    final localStorage = ref.read(localStorageServiceProvider);
-    await localStorage.updateUser(userId, {
-      'preferences.$key': value,
-      'updatedAt': DateTime.now(),
+    final user = ref.read(localAuthServiceProvider).currentUser;
+    if (user == null) return;
+    await ref.read(localStorageServiceProvider).updateUser(userId, {
+      'preferences': {...user.preferences, key: value},
     });
   }
 
   Future<void> _showTimePicker() async {
-    final user = ref.read(localCurrentUserProvider);
+    final user = ref.read(localAuthServiceProvider).currentUser;
     if (user == null) return;
     
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay(
-        hour: int.tryParse(user.preferences['reminderTime']?.split(':')[0] ?? '9') ?? 9,
-        minute: int.tryParse(user.preferences['reminderTime']?.split(':')[1] ?? '00') ?? 0,
+        hour: int.tryParse(_reminderTime.split(':')[0]) ?? 9,
+        minute: int.tryParse(_reminderTime.split(':')[1]) ?? 0,
       ),
     );
     
     if (time != null) {
       final timeString = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
-      final localStorage = ref.read(localStorageServiceProvider);
-      await localStorage.updateUser(user.id, {
-        'preferences.reminderTime': timeString,
-        'updatedAt': DateTime.now(),
-      });
+      await ref
+          .read(faithJourneyServiceProvider)
+          .updateReadingHabit(user.id, reminderTime: timeString);
+      if (mounted) setState(() => _reminderTime = timeString);
     }
   }
 
   Future<void> _showTitleSelection() async {
-    final user = ref.read(localCurrentUserProvider);
+    final user = ref.read(localAuthServiceProvider).currentUser;
     if (user == null) return;
     
     final faithJourneyService = ref.read(faithJourneyServiceProvider);
@@ -353,7 +367,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _showBlockedUsers() async {
-    final user = ref.read(localCurrentUserProvider);
+    final user = ref.read(localAuthServiceProvider).currentUser;
     if (user == null) return;
     
     await showDialog(
@@ -372,7 +386,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     return ListTile(
                       title: Text(blockedUserId),
                       trailing: IconButton(
-                        icon: const Icon(Icons.unblock, color: Colors.green),
+                        icon: const Icon(Icons.person_add_alt, color: Colors.green),
                         onPressed: () async {
                           final localStorage = ref.read(localStorageServiceProvider);
                           final blockedUserIds = List<String>.from(user.blockedUserIds);
@@ -563,7 +577,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
     
     if (confirmed == true) {
-      final user = ref.read(localCurrentUserProvider);
+      final user = ref.read(localAuthServiceProvider).currentUser;
       if (user != null) {
         await ref.read(localAuthServiceProvider).deleteAccount();
         if (mounted) context.go('/welcome');

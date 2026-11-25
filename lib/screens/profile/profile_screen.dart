@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import '../../config/theme.dart';
 import '../../models/user_model.dart';
 import '../../models/faith_journey_model.dart';
-import '../../services/auth_service.dart';
-import '../../services/database_service.dart';
+import '../../services/local_auth_service.dart';
 import '../../services/faith_journey_service.dart';
 import '../../widgets/profile_header.dart';
 import '../../widgets/stats_card.dart';
@@ -310,7 +308,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           children: [
             StatsCard(
               icon: Icons.menu_book_outlined,
-              value: '${user.readingStats.totalVersesRead ?? 0}',
+              value: '${ReadingStats.fromJson(user.readingStats).totalVersesRead}',
               label: 'Verses Read',
               color: Colors.blue,
             ),
@@ -468,21 +466,5 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       title: Text(title),
       trailing: const Icon(Icons.lock_outline, size: 16),
     );
-  }
-}
-
-// Premium tier extension for display names
-extension on PremiumTier {
-  String get displayName {
-    switch (this) {
-      case PremiumTier.free:
-        return 'Free';
-      case PremiumTier.basic:
-        return 'Basic';
-      case PremiumTier.pro:
-        return 'Pro';
-      case PremiumTier.bishop:
-        return 'Bishop';
-    }
   }
 }

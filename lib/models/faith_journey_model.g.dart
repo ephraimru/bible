@@ -143,6 +143,12 @@ _FaithJourney _$FaithJourneyFromJson(Map<String, dynamic> json) =>
       lastUpdatedAt: json['lastUpdatedAt'] == null
           ? null
           : DateTime.parse(json['lastUpdatedAt'] as String),
+      lastReadingDate: json['lastReadingDate'] == null
+          ? null
+          : DateTime.parse(json['lastReadingDate'] as String),
+      streakStartDate: json['streakStartDate'] == null
+          ? null
+          : DateTime.parse(json['streakStartDate'] as String),
       hasReachedBeliever: json['hasReachedBeliever'] as bool? ?? false,
       hasReachedPreacher: json['hasReachedPreacher'] as bool? ?? false,
       hasReachedShepherd: json['hasReachedShepherd'] as bool? ?? false,
@@ -178,6 +184,8 @@ Map<String, dynamic> _$FaithJourneyToJson(_FaithJourney instance) =>
       'achievements': instance.achievements,
       'startedAt': instance.startedAt?.toIso8601String(),
       'lastUpdatedAt': instance.lastUpdatedAt?.toIso8601String(),
+      'lastReadingDate': instance.lastReadingDate?.toIso8601String(),
+      'streakStartDate': instance.streakStartDate?.toIso8601String(),
       'hasReachedBeliever': instance.hasReachedBeliever,
       'hasReachedPreacher': instance.hasReachedPreacher,
       'hasReachedShepherd': instance.hasReachedShepherd,

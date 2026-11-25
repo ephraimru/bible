@@ -114,7 +114,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               const SizedBox(height: AppTheme.md),
               
               // App icon
-              const Column(
+              Column(
                 children: [
                   Container(
                     padding: EdgeInsets.all(AppTheme.md),

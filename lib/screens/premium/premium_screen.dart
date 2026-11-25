@@ -5,11 +5,10 @@ import 'package:go_router/go_router.dart';
 import '../../config/theme.dart';
 import '../../models/user_model.dart';
 import '../../models/premium_model.dart';
-import '../../models/faith_journey_model.dart';
-import '../../services/auth_service.dart';
-import '../../services/database_service.dart';
+import '../../services/local_auth_service.dart';
 import '../../services/premium_service.dart';
 import '../../services/faith_journey_service.dart';
+import '../../services/local_storage_service.dart';
 
 class PremiumScreen extends ConsumerStatefulWidget {
   const PremiumScreen({super.key});
@@ -23,8 +22,6 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(localCurrentUserProvider).value;
     final subscription = ref.watch(currentSubscriptionProvider).value;
-    final productsAsync = ref.watch(availableProductsProvider);
-    final premiumService = ref.read(premiumServiceProvider);
     
     if (user == null) {
       return Scaffold(
@@ -384,8 +381,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
     required List<String> features,
     required VoidCallback? onTap,
   }) {
-    final isFree = tier == PremiumTier.free;
-    
+
     return SizedBox(
       width: 200,
       child: Card(
@@ -503,7 +499,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
         name: 'Advanced Bible Search',
         description: 'Enhanced search capabilities for the Bible',
         icon: 'search',
-        minimumPlan: PremiumTier.basic,
+        minimumPlan: SubscriptionPlan.basicMonthly,
         isUnlocked: tier.index >= PremiumTier.basic.index,
       ),
       PremiumFeature(
@@ -511,7 +507,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
         name: 'Offline Mode',
         description: 'Download and read the Bible without internet',
         icon: 'download',
-        minimumPlan: PremiumTier.basic,
+        minimumPlan: SubscriptionPlan.basicMonthly,
         isUnlocked: tier.index >= PremiumTier.basic.index,
       ),
       PremiumFeature(
@@ -519,7 +515,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
         name: 'Ad-Free Experience',
         description: 'Remove all advertisements from the app',
         icon: 'ad_free',
-        minimumPlan: PremiumTier.basic,
+        minimumPlan: SubscriptionPlan.basicMonthly,
         isUnlocked: tier.index >= PremiumTier.basic.index,
       ),
       PremiumFeature(
@@ -527,7 +523,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
         name: 'Bible Reading Plans',
         description: 'Guided reading plans to help you read the Bible',
         icon: 'book',
-        minimumPlan: PremiumTier.basic,
+        minimumPlan: SubscriptionPlan.basicMonthly,
         isUnlocked: tier.index >= PremiumTier.basic.index,
       ),
       PremiumFeature(
@@ -535,7 +531,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
         name: 'Bible Commentaries',
         description: 'Access to premium Bible commentaries',
         icon: 'comment',
-        minimumPlan: PremiumTier.pro,
+        minimumPlan: SubscriptionPlan.proMonthly,
         isUnlocked: tier.index >= PremiumTier.pro.index,
       ),
       PremiumFeature(
@@ -543,7 +539,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
         name: 'Devotionals',
         description: 'Exclusive devotionals and Bible studies',
         icon: 'devotionals',
-        minimumPlan: PremiumTier.pro,
+        minimumPlan: SubscriptionPlan.proMonthly,
         isUnlocked: tier.index >= PremiumTier.pro.index,
       ),
       PremiumFeature(
@@ -551,7 +547,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
         name: 'Cross References',
         description: 'View cross-references between Bible verses',
         icon: 'cross_references',
-        minimumPlan: PremiumTier.pro,
+        minimumPlan: SubscriptionPlan.proMonthly,
         isUnlocked: tier.index >= PremiumTier.pro.index,
       ),
       PremiumFeature(
@@ -559,7 +555,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
         name: 'Study Notes',
         description: 'Create and save personal study notes',
         icon: 'notes',
-        minimumPlan: PremiumTier.pro,
+        minimumPlan: SubscriptionPlan.proMonthly,
         isUnlocked: tier.index >= PremiumTier.pro.index,
       ),
       PremiumFeature(
@@ -567,7 +563,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
         name: 'Custom Themes',
         description: 'Personalize the app appearance with custom themes',
         icon: 'palette',
-        minimumPlan: PremiumTier.pro,
+        minimumPlan: SubscriptionPlan.proMonthly,
         isUnlocked: tier.index >= PremiumTier.pro.index,
       ),
       PremiumFeature(
@@ -575,7 +571,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
         name: 'Blog Posting',
         description: 'Post articles and devotionals on the blog',
         icon: 'blog',
-        minimumPlan: PremiumTier.bishop,
+        minimumPlan: SubscriptionPlan.bishop,
         isUnlocked: role == UserRole.bishop || hasPaidToSkip,
       ),
       PremiumFeature(
@@ -583,7 +579,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
         name: 'Custom Title Selection',
         description: 'Choose your custom title when you reach Bishop level',
         icon: 'title',
-        minimumPlan: PremiumTier.bishop,
+        minimumPlan: SubscriptionPlan.bishop,
         isUnlocked: role == UserRole.bishop || hasPaidToSkip,
       ),
       PremiumFeature(
@@ -591,7 +587,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
         name: 'Follower Analytics',
         description: 'View analytics about your followers',
         icon: 'analytics',
-        minimumPlan: PremiumTier.bishop,
+        minimumPlan: SubscriptionPlan.bishop,
         isUnlocked: role == UserRole.bishop || hasPaidToSkip,
       ),
     ];
@@ -605,7 +601,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
   }
 
   Future<void> _purchaseSubscription(SubscriptionPlan plan) async {
-    final user = ref.read(localCurrentUserProvider).value;
+    final user = ref.read(localAuthServiceProvider).currentUser;
     if (user == null) return;
     
     final premiumService = ref.read(premiumServiceProvider);
@@ -676,7 +672,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
   }
 
   Future<void> _purchaseBishopAccess() async {
-    final user = ref.read(localCurrentUserProvider).value;
+    final user = ref.read(localAuthServiceProvider).currentUser;
     if (user == null) return;
     
     showDialog(
@@ -702,7 +698,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
   }
 
   Future<void> _purchaseLadderSkip() async {
-    final user = ref.read(localCurrentUserProvider).value;
+    final user = ref.read(localAuthServiceProvider).currentUser;
     if (user == null) return;
     
     final premiumService = ref.read(premiumServiceProvider);
@@ -853,7 +849,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
   }
 
   Future<void> _showSubscriptionHistory() async {
-    final user = ref.read(localCurrentUserProvider).value;
+    final user = ref.read(localAuthServiceProvider).currentUser;
     if (user == null) return;
     
     final subscriptions = await ref.read(premiumServiceProvider).getSubscriptionHistory(user.id);

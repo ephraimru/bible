@@ -57,6 +57,8 @@ abstract class ChatMessageModel with _$ChatMessageModel {
     @Default([]) List<String> flaggedBy,
     @Default(false) bool isEdited,
     @Default(false) bool isDeleted,
+    String? deletedBy,
+    @Default(null) DateTime? deletedAt,
     String? replyToMessageId,
     String? imageUrl,
     String? voiceUrl,

@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
@@ -11,15 +14,14 @@ final localAuthServiceProvider = Provider<LocalAuthService>((ref) {
   );
 });
 
-// Auth State Provider for Local Auth
-final localAuthStateProvider = StreamProvider<UserModel?>((ref) {
-  return ref.read(localAuthServiceProvider).authStateChanges;
+// Signed-in user (null when signed out). Emits again whenever the user's
+// stored record changes, so profile, role and tier updates reach the UI.
+final localCurrentUserProvider = StreamProvider<UserModel?>((ref) {
+  return ref.watch(localAuthServiceProvider).authStateChanges;
 });
 
-// Current User Provider for Local Auth
-final localCurrentUserProvider = Provider<UserModel?>((ref) {
-  return ref.read(localAuthServiceProvider).currentUser;
-});
+// Kept for existing callers; same as [localCurrentUserProvider].
+final localAuthStateProvider = localCurrentUserProvider;
 
 class LocalAuthService {
   final LocalStorageService _localStorageService;
@@ -34,6 +36,9 @@ class LocalAuthService {
   
   // Stream controller for auth state changes
   final _authStateController = StreamController<UserModel?>.broadcast();
+
+  // Follows the signed-in user's stored record.
+  StreamSubscription<UserModel?>? _userSubscription;
   
   LocalAuthService({
     required LocalStorageService localStorageService,
@@ -48,6 +53,7 @@ class LocalAuthService {
     if (userId != null) {
       _currentUser = await _localStorageService.getUser(userId);
       _authStateController.add(_currentUser);
+      _watchUser(_currentUser?.id);
     }
   }
 
@@ -56,8 +62,21 @@ class LocalAuthService {
     return _localStorageService.getAppSetting<String>(_currentUserIdKey);
   }
 
+  // Keep [_currentUser] in sync with storage while [userId] is signed in.
+  void _watchUser(String? userId) {
+    _userSubscription?.cancel();
+    _userSubscription = null;
+    if (userId == null) return;
+    _userSubscription =
+        _localStorageService.streamUser(userId).skip(1).listen((user) {
+      _currentUser = user;
+      _authStateController.add(user);
+    });
+  }
+
   // Set stored user ID
   Future<void> _setStoredUserId(String? userId) async {
+    _watchUser(userId);
     if (userId != null) {
       await _localStorageService.setAppSetting(_currentUserIdKey, userId);
       await _localStorageService.setAppSetting(_isLoggedInKey, true);
@@ -67,8 +86,11 @@ class LocalAuthService {
     }
   }
 
-  // Auth state stream
-  Stream<UserModel?> get authStateChanges => _authStateController.stream;
+  /// Emits the current user, then every sign-in, sign-out and profile change.
+  Stream<UserModel?> get authStateChanges async* {
+    yield _currentUser;
+    yield* _authStateController.stream;
+  }
 
   // Get current user
   UserModel? get currentUser => _currentUser;
@@ -123,10 +145,8 @@ class LocalAuthService {
   }) async {
     // Find user by email
     final existingUsers = await _localStorageService.getAllUsers();
-    final user = existingUsers.firstWhere(
-      (u) => u.email == email,
-      orElse: () => null,
-    );
+    final user = existingUsers.firstWhereOrNull(
+      (u) => u.email == email);
     
     if (user == null) {
       throw Exception('User not found');
@@ -159,10 +179,8 @@ class LocalAuthService {
     final existingUsers = await _localStorageService.getAllUsers();
     
     // Check if there's a user with google email
-    final googleUser = existingUsers.firstWhere(
-      (u) => u.email.endsWith('@gmail.com'),
-      orElse: () => null,
-    );
+    final googleUser = existingUsers.firstWhereOrNull(
+      (u) => u.email.endsWith('@gmail.com'));
     
     if (googleUser != null) {
       // Update last login
@@ -322,6 +340,7 @@ class LocalAuthService {
 
   // Dispose
   void dispose() {
+    _userSubscription?.cancel();
     _authStateController.close();
   }
 }

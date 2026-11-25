@@ -101,7 +101,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               const SizedBox(height: AppTheme.md),
               
               // App icon
-              const Column(
+              Column(
                 children: [
                   Container(
                     padding: EdgeInsets.all(AppTheme.md),

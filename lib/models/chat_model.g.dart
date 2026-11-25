@@ -34,6 +34,10 @@ _ChatMessageModel _$ChatMessageModelFromJson(
       const [],
   isEdited: json['isEdited'] as bool? ?? false,
   isDeleted: json['isDeleted'] as bool? ?? false,
+  deletedBy: json['deletedBy'] as String?,
+  deletedAt: json['deletedAt'] == null
+      ? null
+      : DateTime.parse(json['deletedAt'] as String),
   replyToMessageId: json['replyToMessageId'] as String?,
   imageUrl: json['imageUrl'] as String?,
   voiceUrl: json['voiceUrl'] as String?,
@@ -69,6 +73,8 @@ Map<String, dynamic> _$ChatMessageModelToJson(_ChatMessageModel instance) =>
       'flaggedBy': instance.flaggedBy,
       'isEdited': instance.isEdited,
       'isDeleted': instance.isDeleted,
+      'deletedBy': instance.deletedBy,
+      'deletedAt': instance.deletedAt?.toIso8601String(),
       'replyToMessageId': instance.replyToMessageId,
       'imageUrl': instance.imageUrl,
       'voiceUrl': instance.voiceUrl,
