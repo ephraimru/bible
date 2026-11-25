@@ -410,30 +410,6 @@ class ModerationService {
 
   // ============ REPORT HANDLING ============
 
-  /// Called when a member flags a chat message: records the flag on the
-  /// message and files a report for moderators.
-  Future<String> flagChatMessage({
-    required String roomId,
-    required String messageId,
-    required String reportedBy,
-    required String reason,
-  }) async {
-    final messages = await _storage.getChatMessages(roomId);
-    final message = messages.where((m) => m.id == messageId).firstOrNull;
-    if (message != null && !message.flaggedBy.contains(reportedBy)) {
-      await _storage.updateChatMessage(messageId, {
-        'flaggedBy': [...message.flaggedBy, reportedBy],
-        'requiresReview': true,
-      });
-    }
-    return createModerationReport(
-      messageId: messageId,
-      roomId: roomId,
-      reportedBy: reportedBy,
-      reason: reason,
-    );
-  }
-
   /// Create a moderation report
   Future<String> createModerationReport({
     required String messageId,
@@ -480,59 +456,6 @@ class ModerationService {
     });
   }
 
-  // ============ AUTOMATED MODERATION ============
-
-  /// Automatically moderate chat rooms
-  Future<void> autoModerateChatRooms() async {
-    final rooms = await _storage.getChatRooms();
-    
-    for (final room in rooms) {
-      if (!room.autoModerate) continue;
-      
-      final messages = await _storage.getChatMessages(room.id);
-      
-      for (final message in messages) {
-        if (message.moderationStatus != ModerationStatus.pending) continue;
-        
-        final result = await moderateMessage(
-          message: message.content,
-          senderId: message.senderId,
-          roomId: room.id,
-        );
-        
-        if (result.isFlagged) {
-          // For local storage, we just update the message
-          await _storage.updateChatMessage(message.id, {
-            'moderationStatus': ModerationStatus.flagged,
-            'toxicityScore': result.toxicityScore,
-            'offensiveScore': result.offensiveScore,
-            'politicalScore': result.politicalScore,
-            'requiresReview': result.requiresReview,
-          });
-          
-          // Take action based on configuration
-          if (room.autoModerate) {
-            if (result.action == ModerationAction.delete) {
-              await _storage.updateChatMessage(message.id, {
-                'isDeleted': true,
-                'deletedBy': 'auto-moderator',
-                'deletedAt': DateTime.now(),
-              });
-            }
-            
-            if (result.action == ModerationAction.warn && _config.autoWarnUser) {
-              // In local storage mode, we can't send notifications
-            }
-          }
-        } else {
-          // Mark as approved
-          await _storage.updateChatMessage(message.id, {
-            'moderationStatus': ModerationStatus.approved,
-          });
-        }
-      }
-    }
-  }
 }
 
 /// Moderation result

@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../config/router.dart';
 import '../../config/theme.dart';
 import '../../models/verse_model.dart';
-import '../../services/local_auth_service.dart';
+import '../../services/auth_service.dart';
 import '../../services/bible_service.dart';
 import '../../services/local_storage_service.dart';
 import '../../widgets/verse_card.dart';
@@ -42,7 +42,7 @@ class _VerseDetailScreenState extends ConsumerState<VerseDetailScreen> {
         });
         
         // Check if user has liked or saved this verse
-        final userId = ref.read(localAuthServiceProvider).currentUserId;
+        final userId = ref.read(authServiceProvider).currentUserId;
         if (userId != null) {
           final user = await ref.read(localStorageServiceProvider).getUser(userId);
           if (user != null) {
@@ -72,14 +72,14 @@ class _VerseDetailScreenState extends ConsumerState<VerseDetailScreen> {
     } catch (e) {
       // Handle error
     } finally {
-      setState(() {
+      if (mounted) setState(() {
         _isLoading = false;
       });
     }
   }
 
   Future<void> _toggleLike() async {
-    final userId = ref.read(localAuthServiceProvider).currentUserId;
+    final userId = ref.read(authServiceProvider).currentUserId;
     if (userId == null || _verse == null) return;
     
     final databaseService = ref.read(localStorageServiceProvider);
@@ -98,7 +98,7 @@ class _VerseDetailScreenState extends ConsumerState<VerseDetailScreen> {
   }
 
   Future<void> _toggleSave() async {
-    final userId = ref.read(localAuthServiceProvider).currentUserId;
+    final userId = ref.read(authServiceProvider).currentUserId;
     if (userId == null || _verse == null) return;
     
     final databaseService = ref.read(localStorageServiceProvider);

@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../models/user_model.dart';
-import '../services/local_auth_service.dart';
+import '../services/auth_service.dart';
 import '../screens/splash_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/signup_screen.dart';
@@ -43,7 +43,7 @@ class _AuthRefresh extends ChangeNotifier {
 const _authPaths = {'/welcome', '/login', '/signup', '/forgot-password'};
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final auth = ref.read(localAuthServiceProvider);
+  final auth = ref.read(authServiceProvider);
   final refresh = _AuthRefresh(auth.authStateChanges);
   ref.onDispose(refresh.dispose);
 

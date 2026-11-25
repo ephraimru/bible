@@ -53,9 +53,8 @@ class ChatRoomCard extends StatelessWidget {
                     const SizedBox(height: AppTheme.xs),
                     
                     // Last message preview
-                    if (room.lastMessageContent != null)
-                      Text(
-                        '${room.lastMessageSenderId}: ${room.lastMessageContent!}' ,
+                    Text(
+                        room.lastMessageContent ?? room.description ?? 'No messages yet',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Colors.grey,
                             ),
@@ -68,16 +67,9 @@ class ChatRoomCard extends StatelessWidget {
                     // Room metadata
                     Row(
                       children: [
-                        Text(
-                          '${room.memberIds.length} members',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.grey,
-                              ),
-                        ),
-                        
                         if (room.lastMessageAt != null)
                           Padding(
-                            padding: const EdgeInsets.only(left: AppTheme.sm),
+                            padding: EdgeInsets.zero,
                             child: Text(
                               DateFormat('hh:mm a').format(room.lastMessageAt!),
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(

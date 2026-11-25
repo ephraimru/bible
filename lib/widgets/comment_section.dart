@@ -1,16 +1,23 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/theme.dart';
 import '../models/blog_model.dart';
-import '../services/local_auth_service.dart';
-import '../services/local_storage_service.dart';
+import '../services/auth_service.dart';
+import '../services/community_service.dart';
 import '../services/moderation_service.dart';
+import 'report_dialog.dart';
 
+/// Live comments on a blog post, with a box to add one.
 class CommentSection extends ConsumerStatefulWidget {
   final String postId;
 
-  const CommentSection({super.key, required this.postId});
+  /// The post's author may remove any comment on their post.
+  final String? postAuthorId;
+
+  const CommentSection({super.key, required this.postId, this.postAuthorId});
 
   @override
   ConsumerState<CommentSection> createState() => _CommentSectionState();
@@ -23,99 +30,97 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
   
   bool _isSending = false;
 
+  StreamSubscription<List<BlogCommentModel>>? _sub;
+
   @override
   void initState() {
     super.initState();
-    _loadComments();
+    _sub = ref.read(communityServiceProvider).watchComments(widget.postId).listen(
+      (comments) {
+        if (!mounted) return;
+        final blocked = ref.read(currentUserProvider)?.blockedUserIds ?? const [];
+        setState(() {
+          _comments = comments.where((c) => !blocked.contains(c.authorId)).toList();
+          _isLoading = false;
+        });
+      },
+      onError: (Object e) {
+        if (mounted) setState(() => _isLoading = false);
+      },
+    );
   }
 
   @override
   void dispose() {
+    _sub?.cancel();
     _commentController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadComments() async {
-    try {
-      final comments = await ref.read(localStorageServiceProvider).getBlogComments(
-            widget.postId,
-          );
-      
-      setState(() {
-        _comments = comments;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-    }
+  void _toast(String message, {bool error = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: error ? Colors.red : null),
+    );
   }
 
   Future<void> _sendComment() async {
     final text = _commentController.text.trim();
-    if (text.isEmpty) return;
-    
-    final userId = ref.read(localAuthServiceProvider).currentUserId;
-    if (userId == null) return;
-    
-    setState(() {
-      _isSending = true;
-    });
-    
+    final user = ref.read(currentUserProvider);
+    if (text.isEmpty || user == null) return;
+    if (text.length > CommunityService.maxCommentLength) {
+      _toast('Comments can be up to ${CommunityService.maxCommentLength} characters.', error: true);
+      return;
+    }
+
+    setState(() => _isSending = true);
     try {
-      // Moderate comment
-      final moderationResult = await ref.read(moderationServiceProvider).moderateBlogComment(
+      final moderation = await ref.read(moderationServiceProvider).moderateBlogComment(
             content: text,
-            authorId: userId,
+            authorId: user.id,
             postId: widget.postId,
           );
-      
-      if (!moderationResult.isAllowed) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Your comment was blocked: ${moderationResult.reason}'),
-            backgroundColor: Colors.red,
-          ),
-        );
+      if (!moderation.isAllowed) {
+        _toast('Your comment was blocked: ${moderation.reason}', error: true);
         return;
       }
-      
-      // Get user info
-      final user = ref.read(localCurrentUserProvider);
-      
-      // Create comment
-      final comment = BlogCommentModel(
-        id: '',
-        postId: widget.postId,
-        authorId: userId,
-        authorName: user?.displayName ?? 'Anonymous',
-        authorPhotoUrl: user?.photoUrl,
-        content: text,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-      
-      await ref.read(localStorageServiceProvider).createBlogComment(comment);
-      
-      // Clear input
+      await ref.read(communityServiceProvider).addComment(
+            postId: widget.postId,
+            author: user,
+            content: text,
+          );
       _commentController.clear();
-      
-      // Add comment to local list
-      setState(() {
-        _comments.add(comment);
-      });
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to post comment: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _toast('Could not post your comment. Check your connection.', error: true);
     } finally {
-      setState(() {
-        _isSending = false;
-      });
+      if (mounted) setState(() => _isSending = false);
+    }
+  }
+
+  Future<void> _deleteComment(BlogCommentModel comment) async {
+    try {
+      await ref.read(communityServiceProvider).deleteComment(widget.postId, comment.id);
+    } catch (_) {
+      _toast('Could not delete the comment.', error: true);
+    }
+  }
+
+  Future<void> _reportComment(BlogCommentModel comment) async {
+    final uid = ref.read(authServiceProvider).currentUserId;
+    if (uid == null) return;
+    final reason = await showReportDialog(context);
+    if (reason == null) return;
+    try {
+      await ref.read(communityServiceProvider).report(
+            reporterId: uid,
+            contentPath: CommunityService.commentPath(widget.postId, comment.id),
+            authorId: comment.authorId,
+            reason: reason,
+            excerpt: comment.content,
+          );
+      _toast('Thank you. The comment was reported to the admin.');
+    } catch (_) {
+      _toast('Could not send the report.', error: true);
     }
   }
 
@@ -203,7 +208,7 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
   }
 
   Widget _buildCommentItem(BuildContext context, BlogCommentModel comment) {
-    final userId = ref.read(localAuthServiceProvider).currentUserId;
+    final userId = ref.read(authServiceProvider).currentUserId;
     final isCurrentUser = comment.authorId == userId;
     
     return Card(
@@ -254,15 +259,14 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
                   ),
                 ),
                 
-                // Comment actions
-                if (isCurrentUser)
-                  IconButton(
+                // Delete: the comment's author or the post's author
+                if (isCurrentUser || widget.postAuthorId == userId)
+                  PopupMenuButton<String>(
                     icon: const Icon(Icons.more_vert, size: 18),
-                    onPressed: () {
-                      // Show comment actions
-                    },
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
+                    onSelected: (_) => _deleteComment(comment),
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(value: 'delete', child: Text('Delete comment')),
+                    ],
                   ),
               ],
             ),
@@ -280,32 +284,15 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
             // Comment metadata
             Row(
               children: [
-                // Like button
-                IconButton(
-                  icon: const Icon(Icons.favorite_outline, size: 16),
-                  onPressed: () {
-                    // Like comment
-                  },
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-                
-                const SizedBox(width: AppTheme.sm),
-                
-                // Like count
-                Text('${comment.likes.length}'),
-                
-                const SizedBox(width: AppTheme.md),
-                
-                // Flag button
-                IconButton(
-                  icon: const Icon(Icons.flag_outlined, size: 16),
-                  onPressed: () {
-                    // Flag comment
-                  },
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
+                // Report someone else's comment
+                if (!isCurrentUser)
+                  IconButton(
+                    icon: const Icon(Icons.flag_outlined, size: 16),
+                    tooltip: 'Report',
+                    onPressed: () => _reportComment(comment),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
                 
                 const Spacer(),
                 
@@ -325,7 +312,7 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
   }
 
   Widget _buildCommentInput(BuildContext context) {
-    final userId = ref.read(localAuthServiceProvider).currentUserId;
+    final userId = ref.read(authServiceProvider).currentUserId;
     
     if (userId == null) {
       return Container(
@@ -382,6 +369,7 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
             icon: _isSending
                 ? const CircularProgressIndicator()
                 : const Icon(Icons.send),
+            tooltip: 'Post comment',
             onPressed: _isSending ? null : _sendComment,
             style: IconButton.styleFrom(
               backgroundColor: AppTheme.primaryColor,

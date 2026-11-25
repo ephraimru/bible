@@ -5,7 +5,7 @@ import '../models/user_model.dart';
 import '../models/faith_journey_model.dart';
 import 'local_storage_service.dart';
 import 'bible_service.dart';
-import 'local_auth_service.dart';
+import 'auth_service.dart';
 import 'notification_service.dart';
 
 // Faith Journey Service Provider
@@ -20,8 +20,8 @@ final faithJourneyServiceProvider = Provider<FaithJourneyService>((ref) {
 // Faith Journey Stream Provider
 final faithJourneyStreamProvider = StreamProvider<FaithJourney?>((ref) {
   // Re-subscribe whenever a different user signs in.
-  final userId = ref.watch(localAuthStateProvider).value?.id ??
-      ref.read(localAuthServiceProvider).currentUserId;
+  final userId = ref.watch(authStateProvider).value?.id ??
+      ref.read(authServiceProvider).currentUserId;
   if (userId == null) return Stream.value(null);
   
   return ref.read(faithJourneyServiceProvider).streamFaithJourney(userId);

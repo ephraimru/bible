@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../services/local_auth_service.dart';
+import '../services/auth_service.dart';
 import '../services/bible_service.dart';
 import '../services/faith_journey_service.dart';
 
@@ -32,7 +32,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         Future<void>.delayed(const Duration(milliseconds: 900)),
       ]);
 
-      final userId = ref.read(localAuthServiceProvider).currentUserId;
+      final userId = ref.read(authServiceProvider).currentUserId;
       if (userId != null) {
         final faithJourneyService = ref.read(faithJourneyServiceProvider);
         if (await faithJourneyService.getFaithJourney(userId) == null) {

@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/theme.dart';
 import '../../models/user_model.dart';
 import '../../models/faith_journey_model.dart';
-import '../../services/local_auth_service.dart';
+import '../../services/auth_service.dart';
 import '../../services/faith_journey_service.dart';
 import '../../widgets/faith_progress_card.dart';
 import '../../widgets/milestone_card.dart';
@@ -20,7 +20,7 @@ class FaithJourneyScreen extends ConsumerStatefulWidget {
 class _FaithJourneyScreenState extends ConsumerState<FaithJourneyScreen> {
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(localCurrentUserProvider);
+    final user = ref.watch(currentUserProvider);
     final journey = ref.watch(faithJourneyStreamProvider).value;
     final journeyStats = ref.watch(faithJourneyStatsProvider);
     

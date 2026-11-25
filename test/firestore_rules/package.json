@@ -1,0 +1,12 @@
+{
+  "name": "faith-mission-firestore-rules-tests",
+  "private": true,
+  "description": "Security-rule tests. Run from the repo root: firebase emulators:exec --only firestore --project demo-faith-mission \"npm --prefix test/firestore_rules test\"",
+  "scripts": {
+    "test": "node --test rules.test.mjs"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "firebase": "^11.10.0"
+  }
+}

@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
 import '../../models/user_model.dart';
-import '../../services/local_auth_service.dart';
+import '../../services/auth_service.dart';
 import '../../services/bible_service.dart';
 import '../../services/faith_journey_service.dart';
 import '../../widgets/faith_progress_card.dart';
@@ -31,7 +31,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     await ref.read(bibleServiceProvider).initialize();
     
     // Check faith journey
-    final userId = ref.read(localAuthServiceProvider).currentUserId;
+    final userId = ref.read(authServiceProvider).currentUserId;
     if (userId != null) {
       final journey = await ref.read(faithJourneyServiceProvider).getFaithJourney(userId);
       if (journey == null) {
@@ -42,7 +42,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(localCurrentUserProvider);
+    final user = ref.watch(currentUserProvider);
     final journeyStats = ref.watch(faithJourneyStatsProvider);
     
     return Scaffold(

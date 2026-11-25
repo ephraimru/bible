@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'config/theme.dart';
 import 'config/router.dart';
 import 'services/notification_service.dart';
-import 'services/local_auth_service.dart';
+import 'services/auth_service.dart';
 import 'services/faith_journey_service.dart';
 
 class App extends ConsumerStatefulWidget {
@@ -28,7 +28,7 @@ class _AppState extends ConsumerState<App> {
     if (kIsWeb) return;
     try {
       await ref.read(notificationServiceProvider).initialize();
-      final userId = ref.read(localAuthServiceProvider).currentUserId;
+      final userId = ref.read(authServiceProvider).currentUserId;
       if (userId != null) {
         await ref.read(notificationServiceProvider).setupDefaultReadingReminders(userId);
         await ref.read(faithJourneyServiceProvider).setupReadingReminders(userId);

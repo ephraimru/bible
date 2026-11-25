@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,8 +8,8 @@ import '../../config/router.dart';
 import '../../config/theme.dart';
 import '../../models/blog_model.dart';
 import '../../models/user_model.dart';
-import '../../services/local_auth_service.dart';
-import '../../services/local_storage_service.dart';
+import '../../services/auth_service.dart';
+import '../../services/community_service.dart';
 import '../../widgets/blog_post_card.dart';
 
 class BlogScreen extends ConsumerStatefulWidget {
@@ -21,32 +23,43 @@ class _BlogScreenState extends ConsumerState<BlogScreen> {
   List<BlogPostModel> _posts = [];
   List<BlogPostModel> _filteredPosts = [];
   bool _isLoading = true;
+  String? _error;
   BlogCategory? _selectedCategory;
   String _searchQuery = '';
+  StreamSubscription<List<BlogPostModel>>? _sub;
 
   @override
   void initState() {
     super.initState();
-    _loadPosts();
+    _listen();
   }
 
-  Future<void> _loadPosts() async {
-    try {
-      final posts = await ref.read(localStorageServiceProvider).getBlogPosts(
-            limit: 50,
-            featuredOnly: false,
-          );
-      
-      setState(() {
-        _posts = posts;
-        _filteredPosts = posts;
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  /// Posts update live as anyone publishes, likes or comments.
+  void _listen() {
+    _sub?.cancel();
+    _sub = ref.read(communityServiceProvider).watchPosts().listen(
+      (posts) {
+        if (!mounted) return;
+        final blocked = ref.read(currentUserProvider)?.blockedUserIds ?? const [];
+        _posts = posts.where((p) => !blocked.contains(p.authorId)).toList();
         _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-    }
+        _error = null;
+        _filterPosts();
+      },
+      onError: (Object e) {
+        if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+          _error = 'Could not load posts. Check your internet connection.';
+        });
+      },
+    );
   }
 
   void _filterPosts() {
@@ -74,7 +87,7 @@ class _BlogScreenState extends ConsumerState<BlogScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(localCurrentUserProvider);
+    final user = ref.watch(currentUserProvider);
     
     return Scaffold(
       appBar: AppBar(
@@ -83,6 +96,7 @@ class _BlogScreenState extends ConsumerState<BlogScreen> {
           if (user != null && (user.role == UserRole.bishop || user.canPostOnBlog))
             IconButton(
               icon: const Icon(Icons.add),
+              tooltip: 'Write a post',
               onPressed: () => context.go('/blog/create'),
             ),
         ],
@@ -91,7 +105,27 @@ class _BlogScreenState extends ConsumerState<BlogScreen> {
           ? const Center(
               child: CircularProgressIndicator(),
             )
-          : _buildBlogContent(context, user),
+          : _error != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppTheme.lg),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(_error!, textAlign: TextAlign.center),
+                        const SizedBox(height: AppTheme.md),
+                        FilledButton(
+                          onPressed: () {
+                            setState(() => _isLoading = true);
+                            _listen();
+                          },
+                          child: const Text('Try again'),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : _buildBlogContent(context, user),
     );
   }
 

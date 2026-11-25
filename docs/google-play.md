@@ -6,8 +6,12 @@ There are two Android builds:
 
 | Build | Command | Bishop skip |
 |-------|---------|-------------|
-| Google Play | `flutter build appbundle --release --dart-define=DISTRIBUTION=play` | Locked; Bishop only via 1,000 followers. No outside-payment instructions (Play's payments policy requires Google Play Billing for in-app features). |
-| Direct APK (shared yourself) | `flutter build apk --release` | Locked; shows the admin email and an "Enter unlock code" box. |
+| Google Play | `flutter build appbundle --release --dart-define=DISTRIBUTION=play` | Locked. No outside-payment instructions (Play's payments policy requires Google Play Billing for in-app features). |
+| Direct APK (shared yourself) | `flutter build apk --release` | Locked; shows the admin email. After payment the admin grants Bishop in the Firebase console. |
+
+Both need the Firebase project connected first (see
+[firebase-setup.md](firebase-setup.md)); otherwise sign-in shows "Online
+accounts are not set up in this version yet".
 
 Output: `build/app/outputs/bundle/release/app-release.aab` and
 `build/app/outputs/flutter-apk/app-release.apk`.
@@ -31,14 +35,11 @@ Keep `faith-mission-upload.jks` and its password backed up and private. With
 Play App Signing (the default), Google holds the final app-signing key; if the
 upload key is ever lost, you can ask Google Play support to reset it.
 
-## Bishop unlock codes (direct APK only)
+## Granting Bishop
 
-- Private key: `faith-mission-bishop-private-key.txt`. Keep it secret and
-  backed up; never commit it. Anyone with it can unlock any account.
-- Make a code: open `tool/bishop_code_generator.html` in a browser (or
-  `dart run tool/bishop_codes.dart sign <key-file> <email>`), using the buyer's
-  **Faith Mission account email**. The code only works for that email.
-- The buyer pastes it in Profile → How to become a Bishop → Enter unlock code.
+After a buyer pays (direct APK only), set `role` to `bishop` on their
+`users/{uid}` document in the Firebase console. Step by step:
+[firebase-setup.md → Granting Bishop](firebase-setup.md#2-granting-bishop-after-someone-pays).
 
 ## Play Console checklist
 
@@ -48,15 +49,28 @@ upload key is ever lost, you can ask Google Play support to reset it.
 2. Create the app: name "Faith Mission", default language English, App, Free.
 3. **Privacy policy:** publish `docs/privacy-policy.html` at a public URL and
    paste the URL in App content → Privacy policy.
-4. **App access:** all features are available after creating a free account
-   in the app; no special login is needed for review.
+4. **App access:** reviewers can create a free account in the app (email and
+   password). Blog posting is limited to Bishops; to let reviewers try it,
+   create a test account, make it a Bishop in the Firebase console, and give
+   its email and password under App access.
 5. **Ads:** No ads.
 6. **Content rating:** complete the questionnaire. Answer "yes" to users
-   creating content (blog posts and chat messages), which stay on the device.
+   interacting and sharing content (blog, comments and chat). The app has
+   reporting, blocking and automatic filtering, as Play's user-generated
+   content policy requires.
 7. **Target audience:** 13 and over.
-8. **Data safety:** the app does not send any data off the device, so:
-   - Does your app collect or share any of the required user data types? **No**
-   - (Data stored only on the device is not "collected" under Play's definition.)
+8. **Data safety:**
+   - Collects data: **Yes**. Shares data with third parties: **No** (Firebase
+     is a service provider, which Play does not count as sharing).
+   - Personal info → **Email address**: collected, required, for *Account
+     management*. **Name**: collected, required, for *App functionality*.
+   - Messages → **Other in-app messages** (chat): *App functionality*.
+   - App activity → **Other user-generated content** (posts, comments):
+     *App functionality*.
+   - Encrypted in transit: **Yes**. Users can request deletion: **Yes**
+     (Settings → Delete Account, or email the admin).
+   - Account deletion URL (required): use the privacy policy URL; its
+     "Deleting your data" section explains how.
 9. **Store listing:** use the text below and the graphics (512×512 icon,
    1024×500 feature graphic, phone screenshots 1080×1920).
 10. Upload `app-release.aab` to the closed testing track, add testers, and
@@ -86,10 +100,10 @@ GROW ON YOUR FAITH JOURNEY
 Mark chapters as read, build a daily reading streak, and grow from Believer to Preacher (30 days) and Shepherd (365 days). Reach milestones and choose a title as you go.
 
 COMMUNITY
-Read the blog and join gospel-focused discussions, with moderation that keeps the conversation respectful and lets you quote Scripture freely.
+Read the blog, like and comment on posts, and join live chat rooms for gospel discussion, prayer requests, Bible study and testimonies. Moderation keeps conversations respectful while letting you quote Scripture freely, and you can report or block anyone.
 
 GENTLE REMINDERS
 Optional daily reminders help you keep your reading habit.
 
 FREE AND PRIVATE
-Every feature is free. There are no ads, and your account and reading progress stay on your device.
+Every feature is free, and there are no ads. Your reading progress stays on your device.

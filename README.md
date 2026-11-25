@@ -1,6 +1,6 @@
 # Faith Mission App
 
-A fluid mobile faith mission app built with Flutter. It works fully offline: the complete King James Bible is bundled with the app and all user data is stored on the device. This app provides a comprehensive platform for believers to grow in their faith journey through daily Bible readings, community discussions, and spiritual growth tracking.
+A fluid mobile faith mission app built with Flutter. The complete King James Bible is bundled for offline reading; accounts, the blog and the chat rooms are online with Firebase. This app provides a comprehensive platform for believers to grow in their faith journey through daily Bible readings, community discussions, and spiritual growth tracking.
 
 ## Features
 
@@ -30,7 +30,7 @@ A fluid mobile faith mission app built with Flutter. It works fully offline: the
 
 ### Free features and Bishop access
 
-> **Every feature is free.** The only locked item is skipping the faith-journey ladder straight to Bishop. In APKs shared directly, users contact the admin to arrange payment and receive a signed unlock code; the Google Play build keeps it locked with no payment instructions (Bishop via 1,000 followers). See `docs/google-play.md`.
+> **Every feature is free.** The only locked item is skipping the faith-journey ladder straight to Bishop (which unlocks blog posting). In APKs shared directly, users contact the admin to arrange payment, and the admin then grants Bishop in the Firebase console; the Google Play build keeps it locked with no payment instructions. See `docs/firebase-setup.md` and `docs/google-play.md`.
 
 The items below are the original plan and are not implemented:
 
@@ -63,7 +63,14 @@ flutter pub get
 flutter run            # pick a device, or: flutter run -d chrome
 ```
 
-No accounts, API keys or backend are needed.
+Accounts, blog and chat need a Firebase project: see
+[`docs/firebase-setup.md`](docs/firebase-setup.md). To try everything without
+one, run the local emulators and build against them:
+
+```bash
+firebase emulators:start --project demo-faith-mission --only auth,firestore
+flutter run -d chrome --dart-define=USE_FIREBASE_EMULATOR=true
+```
 
 ### Tests
 
@@ -72,8 +79,10 @@ flutter test
 ```
 
 The tests cover the bundled Bible (all 66 books / 1,189 chapters / 31,102
-verses, lookup and search), sign-up/sign-in and password hashing, storage,
-moderation rules, and reading streaks / role promotion.
+verses, lookup and search), accounts and profile sync, the blog and chat
+service, on-device storage, moderation rules, and reading streaks / role
+promotion. The Firestore security rules have separate tests that run on the
+emulator (see `docs/firebase-setup.md`).
 
 ### Regenerating models
 
@@ -111,22 +120,25 @@ and provides:
 Verse ids are readable: `John.3.16`, `1 John.4.8`.
 
 ### Accounts
-Accounts are local to the device (`LocalAuthService`). Passwords are never
-stored; a random salt and an iterated SHA-256 hash are kept and compared at
-sign-in. The signed-in user is restored on start-up. Email password reset and
-Google/Apple sign-in need a backend and are not available yet.
+Email-and-password accounts with Firebase Authentication (`AuthService`),
+including password-reset emails. Each account has a public profile at
+`users/{uid}` in Firestore (name, bio, title, role; never the email) and a
+copy on the device for the offline features. Bishop is granted by the admin
+in the Firebase console and syncs to the app.
 
-### Storage
-All data lives in [Hive](https://pub.dev/packages/hive) boxes via
-`LocalStorageService`. Models are stored as JSON, so no Hive type adapters are
-needed, and `update*` methods accept a partial map of any model fields. If the
-platform refuses persistent storage (some private-browsing modes or sandboxed
-web frames), the app keeps working with in-memory storage and says so on the
-Welcome screen.
+### Blog and chat
+`CommunityService` stores posts, comments, likes and chat messages in
+Firestore and updates screens live. Only Bishops can publish posts; everyone
+signed in can like, comment and chat in four fixed rooms. Members can report
+content (to `reports`, read by the admin in the console) and block people.
+Access is enforced by [`firestore.rules`](firestore.rules), which has its own
+emulator tests in `test/firestore_rules`.
 
-### Fonts
-Roboto is bundled in `assets/fonts` (SIL Open Font License, see
-`assets/fonts/OFL.txt`) so text renders without downloading fonts.
+### Storage on the device
+The Bible, reading progress, settings, saved verses, bookmarks and blocked
+people live in [Hive](https://pub.dev/packages/hive) boxes via
+`LocalStorageService`, stored as JSON. If the platform refuses persistent
+storage, the app falls back to in-memory storage and says so.
 
 ### Faith journey
 Mark a chapter as read at the end of it in the reader. Streaks count calendar
@@ -175,9 +187,10 @@ test/                            # unit tests
 
 ## Known limitations
 
-- Blog and chat are stored on the device only, so they are not shared between
-  users until a backend is added.
-- In-app purchases, password-reset email and social sign-in are not implemented.
+- Following other members is not implemented, so Bishop is reached by the
+  admin granting it (the 1,000-follower route needs following first).
+- Reading progress is per device; it does not follow the account to a new phone.
+- In-app purchases and Google/Apple sign-in are not implemented.
 
 ## License
 

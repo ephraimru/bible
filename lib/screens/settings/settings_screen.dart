@@ -1,10 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
 import '../../models/user_model.dart';
-import '../../services/local_auth_service.dart';
+import '../../services/auth_service.dart';
 import '../../services/local_storage_service.dart';
 import '../../services/faith_journey_service.dart';
 import '../../services/notification_service.dart';
@@ -19,7 +20,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(localCurrentUserProvider);
+    final user = ref.watch(currentUserProvider);
     final notificationService = ref.watch(notificationServiceProvider);
     
     if (user == null) {
@@ -303,7 +304,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _showTimePicker() async {
-    final user = ref.read(localCurrentUserProvider);
+    final user = ref.read(currentUserProvider);
     if (user == null) return;
     
     final time = await showTimePicker(
@@ -321,7 +322,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _showTitleSelection() async {
-    final user = ref.read(localCurrentUserProvider);
+    final user = ref.read(currentUserProvider);
     if (user == null) return;
     
     final faithJourneyService = ref.read(faithJourneyServiceProvider);
@@ -358,7 +359,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _showBlockedUsers() async {
-    final user = ref.read(localCurrentUserProvider);
+    final user = ref.read(currentUserProvider);
     if (user == null) return;
     
     await showDialog(
@@ -375,9 +376,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   itemBuilder: (context, index) {
                     final blockedUserId = user.blockedUserIds[index];
                     return ListTile(
-                      title: Text(blockedUserId),
+                      title: FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                        future: ref.read(firestoreProvider).collection('users').doc(blockedUserId).get(),
+                        builder: (context, snap) => Text(
+                          (snap.data?.data()?['displayName'] as String?) ?? 'Blocked user',
+                        ),
+                      ),
                       trailing: IconButton(
                         icon: const Icon(Icons.person_add_alt_1, color: Colors.green),
+                        tooltip: 'Unblock',
                         onPressed: () async {
                           final localStorage = ref.read(localStorageServiceProvider);
                           final blockedUserIds = List<String>.from(user.blockedUserIds);
@@ -542,7 +549,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
     
     if (confirmed == true) {
-      await ref.read(localAuthServiceProvider).signOut();
+      await ref.read(authServiceProvider).signOut();
       if (mounted) context.go('/welcome');
     }
   }
@@ -568,9 +575,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
     
     if (confirmed == true) {
-      final user = ref.read(localCurrentUserProvider);
+      final user = ref.read(currentUserProvider);
       if (user != null) {
-        await ref.read(localAuthServiceProvider).deleteAccount();
+        await ref.read(authServiceProvider).deleteAccount();
         if (mounted) context.go('/welcome');
       }
     }

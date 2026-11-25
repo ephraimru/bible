@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,8 +6,8 @@ import 'package:go_router/go_router.dart';
 import '../../config/theme.dart';
 import '../../models/blog_model.dart';
 import '../../models/user_model.dart';
-import '../../services/local_auth_service.dart';
-import '../../services/local_storage_service.dart';
+import '../../services/auth_service.dart';
+import '../../services/community_service.dart';
 import '../../services/moderation_service.dart';
 
 class CreatePostScreen extends ConsumerStatefulWidget {
@@ -67,7 +68,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     });
     
     try {
-      final user = ref.read(localCurrentUserProvider);
+      final user = ref.read(currentUserProvider);
       if (user == null) {
         throw Exception('User not logged in');
       }
@@ -86,46 +87,46 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         return;
       }
       
-      // Create post
-      final post = BlogPostModel(
-        id: '',
-        title: _titleController.text.trim(),
-        content: _contentController.text.trim(),
-        authorId: user.id,
-        authorName: user.displayName,
-        authorPhotoUrl: user.photoUrl,
-        category: _selectedCategory!,
-        tags: _selectedTags,
-        excerpt: _excerptController.text.trim().isEmpty
-            ? _contentController.text.trim().length > 150
-                ? '${_contentController.text.trim().substring(0, 150)}...'
-                : _contentController.text.trim()
-            : _excerptController.text.trim(),
-        readingTime: (_contentController.text.length / 200).ceil(),
-        publishedAt: DateTime.now(),
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-      
-      await ref.read(localStorageServiceProvider).createBlogPost(post);
-      
+      final content = _contentController.text.trim();
+      final excerpt = _excerptController.text.trim();
+      final postId = await ref.read(communityServiceProvider).createPost(
+            author: user,
+            title: _titleController.text,
+            content: content,
+            category: _selectedCategory!,
+            tags: _selectedTags,
+            excerpt: excerpt.isNotEmpty
+                ? excerpt
+                : content.length > 150
+                    ? '${content.substring(0, 150)}…'
+                    : content,
+          );
+
       if (mounted) {
-        context.go('/blog');
+        context.go('/blog/post/$postId');
       }
+    } on FirebaseException catch (e) {
+      setState(() {
+        _errorMessage = e.code == 'permission-denied'
+            ? 'Only Bishops can publish posts.'
+            : 'Could not publish. Check your internet connection and try again.';
+      });
     } catch (e) {
       setState(() {
         _errorMessage = e.toString().replaceAll('Exception: ', '');
       });
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(localCurrentUserProvider);
+    final user = ref.watch(currentUserProvider);
     
     // Check if user can post
     if (user != null && !(user.role == UserRole.bishop || user.canPostOnBlog)) {

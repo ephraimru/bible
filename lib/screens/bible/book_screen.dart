@@ -7,7 +7,7 @@ import '../../config/theme.dart';
 import '../../models/verse_model.dart';
 import '../../services/bible_service.dart';
 import '../../services/faith_journey_service.dart';
-import '../../services/local_auth_service.dart';
+import '../../services/auth_service.dart';
 import 'bible_screen.dart';
 
 /// Reads one book of the Bible, a chapter at a time.
@@ -58,7 +58,7 @@ class _BookScreenState extends ConsumerState<BookScreen> {
     final book = _currentBook;
     if (book == null) return;
     final verses = await ref.read(bibleServiceProvider).getVersesByChapter(book.name, chapter);
-    final userId = ref.read(localAuthServiceProvider).currentUserId;
+    final userId = ref.read(authServiceProvider).currentUserId;
     final completed = userId != null &&
         await ref.read(faithJourneyServiceProvider).isChapterCompleted(userId, book.name, chapter);
     if (!mounted) return;
@@ -72,7 +72,7 @@ class _BookScreenState extends ConsumerState<BookScreen> {
   }
 
   Future<void> _markChapterRead() async {
-    final userId = ref.read(localAuthServiceProvider).currentUserId;
+    final userId = ref.read(authServiceProvider).currentUserId;
     final book = _currentBook;
     if (userId == null || book == null) return;
     setState(() => _markingRead = true);

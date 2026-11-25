@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/theme.dart';
 import '../models/user_model.dart';
-import '../services/local_auth_service.dart';
+import '../services/auth_service.dart';
 
 class ProfileHeader extends ConsumerWidget {
   final UserModel user;
@@ -51,7 +51,7 @@ class ProfileHeader extends ConsumerWidget {
     nameController.dispose();
     bioController.dispose();
     if (saved != true || name.isEmpty) return;
-    await ref.read(localAuthServiceProvider).updateProfile(displayName: name, bio: bio);
+    await ref.read(authServiceProvider).updateProfile(displayName: name, bio: bio);
   }
 
   @override
@@ -171,7 +171,7 @@ class ProfileHeader extends ConsumerWidget {
         const SizedBox(height: AppTheme.md),
         
         // Follow button (if viewing own profile, show edit)
-        if (user.id == ref.read(localAuthServiceProvider).currentUserId)
+        if (user.id == ref.read(authServiceProvider).currentUserId)
           ElevatedButton.icon(
             onPressed: () => _editProfile(context, ref),
             icon: const Icon(Icons.edit_outlined),

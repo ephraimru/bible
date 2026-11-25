@@ -6,7 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_config.dart';
 import '../../config/theme.dart';
 import '../../models/user_model.dart';
-import '../../services/local_auth_service.dart';
+import '../../services/auth_service.dart';
 import '../../services/premium_service.dart';
 
 /// Shows that every feature is free, and how to become a Bishop.
@@ -26,7 +26,7 @@ class PremiumScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(localCurrentUserProvider);
+    final user = ref.watch(currentUserProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -117,20 +117,15 @@ class _BishopCard extends ConsumerWidget {
               'Bishops can publish blog posts and use the Bishop and Apostle titles. '
               'You become a Bishop by reaching 1,000 followers.',
             ),
-            if (PremiumService.canRedeemCodes) ...[
+            if (PremiumService.showsAdminContact) ...[
               const SizedBox(height: AppTheme.md),
               const Text(
                 'To skip the ladder, contact the admin to arrange payment. '
-                "You'll receive an unlock code for your account.",
+                'Once it is confirmed, the admin activates Bishop on your account '
+                'and it appears here automatically.',
               ),
               const SizedBox(height: AppTheme.sm),
               _EmailRow(user: user),
-              const SizedBox(height: AppTheme.md),
-              FilledButton.icon(
-                onPressed: () => _showRedeemDialog(context, ref),
-                icon: const Icon(Icons.vpn_key_outlined),
-                label: const Text('Enter unlock code'),
-              ),
             ],
           ],
         ),
@@ -138,15 +133,6 @@ class _BishopCard extends ConsumerWidget {
     );
   }
 
-  Future<void> _showRedeemDialog(BuildContext context, WidgetRef ref) async {
-    final message = await showDialog<String>(
-      context: context,
-      builder: (context) => _RedeemDialog(userId: user.id, email: user.email),
-    );
-    if (message != null && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-    }
-  }
 }
 
 class _EmailRow extends StatelessWidget {
@@ -221,98 +207,6 @@ class _EmailRow extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _RedeemDialog extends ConsumerStatefulWidget {
-  const _RedeemDialog({required this.userId, required this.email});
-
-  final String userId;
-  final String email;
-
-  @override
-  ConsumerState<_RedeemDialog> createState() => _RedeemDialogState();
-}
-
-class _RedeemDialogState extends ConsumerState<_RedeemDialog> {
-  final _controller = TextEditingController();
-  String? _error;
-  bool _busy = false;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> _redeem() async {
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    final result = await ref
-        .read(premiumServiceProvider)
-        .redeemBishopCode(widget.userId, _controller.text);
-    if (!mounted) return;
-    switch (result) {
-      case RedeemResult.unlocked:
-        Navigator.of(context).pop('Welcome, Bishop! Blog posting and Bishop titles are unlocked.');
-      case RedeemResult.alreadyBishop:
-        Navigator.of(context).pop('You are already a Bishop.');
-      case RedeemResult.invalidCode:
-        setState(() {
-          _busy = false;
-          _error = 'This code is not valid for ${widget.email}. Check that you '
-              'copied all of it, and that the admin made it for this email.';
-        });
-      case RedeemResult.notAvailable:
-        Navigator.of(context).pop('Unlock codes are not available in this version.');
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Enter unlock code'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text('Paste the code the admin sent you for ${widget.email}.'),
-          const SizedBox(height: AppTheme.md),
-          TextField(
-            controller: _controller,
-            minLines: 2,
-            maxLines: 4,
-            autocorrect: false,
-            enableSuggestions: false,
-            decoration: InputDecoration(
-              labelText: 'Unlock code',
-              hintText: 'FMB1.…',
-              errorText: _error,
-              errorMaxLines: 3,
-              border: const OutlineInputBorder(),
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: _busy ? null : _redeem,
-          child: _busy
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Unlock'),
-        ),
-      ],
     );
   }
 }

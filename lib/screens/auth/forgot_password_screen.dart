@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
-import '../../services/local_auth_service.dart';
+import '../../services/auth_service.dart';
 
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -35,7 +35,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     });
     
     try {
-      await ref.read(localAuthServiceProvider).resetPassword(
+      await ref.read(authServiceProvider).resetPassword(
             _emailController.text.trim(),
           );
       
@@ -43,11 +43,11 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         _emailSent = true;
       });
     } catch (e) {
-      setState(() {
+      if (mounted) setState(() {
         _errorMessage = e.toString().replaceAll('Exception: ', '');
       });
     } finally {
-      setState(() {
+      if (mounted) setState(() {
         _isLoading = false;
       });
     }
@@ -211,7 +211,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         const SizedBox(height: AppTheme.md),
         
         Text(
-          'In local mode, password reset is not available. Please use the email and password you signed up with.',
+          'If an account exists for that email, we have sent it a link to reset '
+          'your password. Check your inbox and spam folder.',
           style: Theme.of(context).textTheme.bodyMedium,
           textAlign: TextAlign.center,
         ),

@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../config/theme.dart';
 import '../../models/user_model.dart';
 import '../../models/faith_journey_model.dart';
-import '../../services/local_auth_service.dart';
+import '../../services/auth_service.dart';
 import '../../services/premium_service.dart';
 import '../../services/faith_journey_service.dart';
 import '../../widgets/profile_header.dart';
@@ -32,7 +32,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(localCurrentUserProvider);
+    final user = ref.watch(currentUserProvider);
     final journeyStats = ref.watch(faithJourneyStatsProvider);
     
     if (user == null) {
@@ -111,7 +111,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               // Logout button
               ElevatedButton.icon(
                 onPressed: () async {
-                  await ref.read(localAuthServiceProvider).signOut();
+                  await ref.read(authServiceProvider).signOut();
                   if (mounted) {
                     context.go('/welcome');
                   }

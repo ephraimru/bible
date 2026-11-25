@@ -1,12 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../config/theme.dart';
 import '../../models/blog_model.dart';
-import '../../services/local_auth_service.dart';
+import '../../services/auth_service.dart';
+import '../../services/community_service.dart';
 import '../../services/local_storage_service.dart';
+import '../../widgets/report_dialog.dart';
 import '../../widgets/comment_section.dart';
 
 class PostDetailScreen extends ConsumerStatefulWidget {
@@ -21,99 +26,140 @@ class PostDetailScreen extends ConsumerStatefulWidget {
 class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   BlogPostModel? _post;
   bool _isLoading = true;
-  bool _isLiked = false;
   bool _isBookmarked = false;
-  int _likeCount = 0;
+  bool _likeBusy = false;
+  StreamSubscription<BlogPostModel?>? _sub;
+  final _commentsKey = GlobalKey();
+
+  String? get _uid => ref.read(authServiceProvider).currentUserId;
+  bool get _isLiked => _uid != null && (_post?.likedBy.contains(_uid) ?? false);
 
   @override
   void initState() {
     super.initState();
-    _loadPost();
-  }
-
-  Future<void> _loadPost() async {
-    try {
-      final post = await ref.read(localStorageServiceProvider).getBlogPost(widget.postId);
-      if (post != null) {
+    final user = ref.read(currentUserProvider);
+    _isBookmarked = user?.bookmarkedBlogPostIds.contains(widget.postId) ?? false;
+    _sub = ref.read(communityServiceProvider).watchPost(widget.postId).listen(
+      (post) {
+        if (!mounted) return;
         setState(() {
           _post = post;
-          _likeCount = post.likes;
+          _isLoading = false;
         });
-        
-        // Check if user has liked or bookmarked this post
-        final userId = ref.read(localAuthServiceProvider).currentUserId;
-        if (userId != null) {
-          final user = await ref.read(localStorageServiceProvider).getUser(userId);
-          if (user != null) {
-            setState(() {
-              _isLiked = user.likedVerseIds.contains(post.id);
-              _isBookmarked = user.bookmarkedBlogPostIds.contains(post.id);
-            });
-          }
-        }
-        
-        // Increment view count
-        await ref.read(localStorageServiceProvider).incrementBlogPostViews(widget.postId);
-      }
-    } catch (e) {
-      // Handle error
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
+      },
+      onError: (Object e) {
+        if (mounted) setState(() => _isLoading = false);
+      },
+    );
+    // Count the view (best effort).
+    ref.read(communityServiceProvider).recordView(widget.postId).catchError((_) {});
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  void _toast(String message) {
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _toggleLike() async {
-    final userId = ref.read(localAuthServiceProvider).currentUserId;
-    if (userId == null || _post == null) return;
-    
-    final databaseService = ref.read(localStorageServiceProvider);
-    
-    if (_isLiked) {
-      await databaseService.unlikeBlogPost(_post!.id, userId);
-      setState(() {
-        _isLiked = false;
-        _likeCount--;
-      });
-    } else {
-      await databaseService.likeBlogPost(_post!.id, userId);
-      setState(() {
-        _isLiked = true;
-        _likeCount++;
-      });
+    final uid = _uid;
+    if (uid == null || _post == null || _likeBusy) return;
+    setState(() => _likeBusy = true);
+    try {
+      await ref.read(communityServiceProvider).setPostLiked(_post!.id, uid, !_isLiked);
+    } catch (_) {
+      _toast('Could not update your like. Check your connection.');
+    } finally {
+      if (mounted) setState(() => _likeBusy = false);
     }
   }
 
+  /// Bookmarks are personal, so they stay on this device.
   Future<void> _toggleBookmark() async {
-    final userId = ref.read(localAuthServiceProvider).currentUserId;
-    if (userId == null || _post == null) return;
-    
-    final databaseService = ref.read(localStorageServiceProvider);
-    
+    final uid = _uid;
+    if (uid == null || _post == null) return;
+    final storage = ref.read(localStorageServiceProvider);
     if (_isBookmarked) {
-      await databaseService.removeBookmarkBlogPost(_post!.id, userId);
+      await storage.removeBookmarkBlogPost(_post!.id, uid);
     } else {
-      await databaseService.bookmarkBlogPost(_post!.id, userId);
+      await storage.bookmarkBlogPost(_post!.id, uid);
     }
-    
-    setState(() {
-      _isBookmarked = !_isBookmarked;
-    });
+    setState(() => _isBookmarked = !_isBookmarked);
+  }
+
+  Future<void> _copyPost() async {
+    final post = _post;
+    if (post == null) return;
+    await Clipboard.setData(ClipboardData(
+      text: '${post.title}\n\n${post.content}\n\n— ${post.authorName ?? 'Faith Mission'}',
+    ));
+    _toast('Post copied to clipboard');
+  }
+
+  Future<void> _report() async {
+    final uid = _uid;
+    final post = _post;
+    if (uid == null || post == null) return;
+    final reason = await showReportDialog(context);
+    if (reason == null) return;
+    try {
+      await ref.read(communityServiceProvider).report(
+            reporterId: uid,
+            contentPath: CommunityService.postPath(post.id),
+            authorId: post.authorId,
+            reason: reason,
+            excerpt: post.title,
+          );
+      _toast('Thank you. The post was reported to the admin.');
+    } catch (_) {
+      _toast('Could not send the report. Check your connection.');
+    }
+  }
+
+  Future<void> _delete() async {
+    final post = _post;
+    if (post == null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete post?'),
+        content: const Text('This removes the post for everyone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await ref.read(communityServiceProvider).deletePost(post.id);
+      if (mounted) context.go('/blog');
+    } catch (_) {
+      _toast('Could not delete the post.');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isAuthor = _post != null && _post!.authorId == _uid;
     return Scaffold(
       appBar: AppBar(
         title: Text(_post?.title ?? 'Post'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.share_outlined),
-            onPressed: () {
-              // Share post
-            },
-          ),
+          if (_post != null)
+            PopupMenuButton<String>(
+              onSelected: (v) => v == 'delete' ? _delete() : _report(),
+              itemBuilder: (context) => [
+                if (isAuthor)
+                  const PopupMenuItem(value: 'delete', child: Text('Delete post'))
+                else
+                  const PopupMenuItem(value: 'report', child: Text('Report post')),
+              ],
+            ),
         ],
       ),
       body: _isLoading
@@ -190,7 +236,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
           const SizedBox(height: AppTheme.lg),
           
           // Comments section
-          CommentSection(postId: widget.postId),
+          CommentSection(key: _commentsKey, postId: widget.postId, postAuthorId: _post!.authorId),
           
           const SizedBox(height: AppTheme.lg),
         ],
@@ -273,15 +319,19 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
           ),
         ),
         const SizedBox(width: AppTheme.sm),
-        Text('$_likeCount'),
+        Text('${_post!.likes}'),
         
         const SizedBox(width: AppTheme.md),
         
         // Comment button
         IconButton.filledTonal(
           icon: const Icon(Icons.comment_outlined),
+          tooltip: 'Comments',
           onPressed: () {
-            // Scroll to comments
+            final target = _commentsKey.currentContext;
+            if (target != null) {
+              Scrollable.ensureVisible(target, duration: const Duration(milliseconds: 300));
+            }
           },
           style: IconButton.styleFrom(
             backgroundColor: Colors.grey.shade100,
@@ -314,12 +364,11 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
         
         const SizedBox(width: AppTheme.md),
         
-        // Share button
+        // Copy button
         IconButton.filledTonal(
-          icon: const Icon(Icons.share_outlined),
-          onPressed: () {
-            // Share post
-          },
+          icon: const Icon(Icons.copy_outlined),
+          tooltip: 'Copy post',
+          onPressed: _copyPost,
           style: IconButton.styleFrom(
             backgroundColor: Colors.grey.shade100,
             padding: const EdgeInsets.symmetric(
@@ -424,16 +473,6 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
               ),
             ),
             
-            // Follow button (if not current user)
-            const Spacer(),
-            
-            if (_post!.authorId != ref.read(localAuthServiceProvider).currentUserId)
-              OutlinedButton(
-                onPressed: () {
-                  // Follow author
-                },
-                child: const Text('Follow'),
-              ),
           ],
         ),
       ),

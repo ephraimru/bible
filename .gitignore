@@ -35,3 +35,8 @@ migrate_working_dir/
 *.jks
 *.keystore
 key.properties
+
+# Firebase emulator logs
+firebase-debug.log
+firestore-debug.log
+ui-debug.log

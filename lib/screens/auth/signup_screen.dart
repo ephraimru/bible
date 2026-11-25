@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
-import '../../services/local_auth_service.dart';
+import '../../services/auth_service.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
@@ -49,7 +49,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     });
     
     try {
-      await ref.read(localAuthServiceProvider).signUpWithEmailAndPassword(
+      await ref.read(authServiceProvider).signUpWithEmailAndPassword(
             email: _emailController.text.trim(),
             password: _passwordController.text,
             displayName: _nameController.text.trim(),
@@ -59,11 +59,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         context.go('/home');
       }
     } catch (e) {
-      setState(() {
+      if (mounted) setState(() {
         _errorMessage = e.toString().replaceFirst('Exception: ', '');
       });
     } finally {
-      setState(() {
+      if (mounted) setState(() {
         _isLoading = false;
       });
     }

@@ -1,0 +1,155 @@
+rules_version = '2';
+
+// Security rules for Faith Mission. Deploy with:
+//   firebase deploy --only firestore:rules
+// or paste this file into Firebase console > Firestore Database > Rules.
+//
+// The admin manages Bishop access, moderation reports and content in the
+// Firebase console, which is not subject to these rules.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function profile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Bishops (granted by the admin) may publish blog posts.
+    function canPost() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && (profile().role == 'bishop' || profile().get('canPostOnBlog', false) == true);
+    }
+
+    function isText(value, maxLength) {
+      return value is string && value.size() > 0 && value.size() <= maxLength;
+    }
+
+    function optionalText(data, field, maxLength) {
+      return !(field in data) || data[field] == null
+        || (data[field] is string && data[field].size() <= maxLength);
+    }
+
+    // Only these fields changed between the stored and the new document.
+    function onlyChanged(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+
+    function changedBy(field, amount) {
+      return request.resource.data[field] == resource.data.get(field, 0) + amount;
+    }
+
+    // ------------------------------------------------------ user profiles
+    // Public profile: name, bio, title, role. Never the email.
+    match /users/{uid} {
+      allow read: if signedIn();
+
+      allow create: if isSelf(uid)
+        && request.resource.data.keys().hasOnly(
+             ['displayName', 'bio', 'chosenTitle', 'role', 'hasPaidToSkipLadder', 'canPostOnBlog', 'createdAt'])
+        && isText(request.resource.data.displayName, 80)
+        && optionalText(request.resource.data, 'bio', 300)
+        && optionalText(request.resource.data, 'chosenTitle', 40)
+        && request.resource.data.role in ['believer', 'preacher', 'shepherd']
+        && request.resource.data.hasPaidToSkipLadder == false
+        && request.resource.data.canPostOnBlog == false;
+
+      // Users may edit their name, bio and title, and report reading-based
+      // roles, but can never grant themselves Bishop.
+      allow update: if isSelf(uid)
+        && onlyChanged(['displayName', 'bio', 'chosenTitle', 'role'])
+        && isText(request.resource.data.displayName, 80)
+        && optionalText(request.resource.data, 'bio', 300)
+        && optionalText(request.resource.data, 'chosenTitle', 40)
+        && resource.data.role != 'bishop'
+        && request.resource.data.role in ['believer', 'preacher', 'shepherd'];
+
+      allow delete: if isSelf(uid);
+    }
+
+    // --------------------------------------------------------------- blog
+    match /posts/{postId} {
+      allow read: if signedIn();
+
+      allow create: if canPost()
+        && request.resource.data.authorId == request.auth.uid
+        && isText(request.resource.data.title, 200)
+        && isText(request.resource.data.content, 20000)
+        && optionalText(request.resource.data, 'excerpt', 500)
+        && isText(request.resource.data.authorName, 120)
+        && request.resource.data.status == 'published'
+        && request.resource.data.likedBy == []
+        && request.resource.data.likes == 0
+        && request.resource.data.comments == 0
+        && request.resource.data.views == 0
+        && request.resource.data.publishedAt == request.time;
+
+      // Author: edit text. Anyone signed in: like/unlike for themselves,
+      // count a view, or keep the comment count in step with a comment.
+      allow update: if signedIn() && (
+        (resource.data.authorId == request.auth.uid
+          && onlyChanged(['title', 'content', 'excerpt', 'category', 'tags', 'updatedAt'])
+          && isText(request.resource.data.title, 200)
+          && isText(request.resource.data.content, 20000))
+        || (onlyChanged(['likedBy', 'likes'])
+          && ((request.resource.data.likedBy.toSet().difference(resource.data.likedBy.toSet()) == [request.auth.uid].toSet()
+                && changedBy('likes', 1))
+            || (resource.data.likedBy.toSet().difference(request.resource.data.likedBy.toSet()) == [request.auth.uid].toSet()
+                && changedBy('likes', -1))))
+        || (onlyChanged(['views']) && changedBy('views', 1))
+        || (onlyChanged(['comments']) && (changedBy('comments', 1) || changedBy('comments', -1)))
+      );
+
+      allow delete: if signedIn() && resource.data.authorId == request.auth.uid;
+
+      match /comments/{commentId} {
+        allow read: if signedIn();
+        allow create: if signedIn()
+          && request.resource.data.authorId == request.auth.uid
+          && request.resource.data.postId == postId
+          && isText(request.resource.data.content, 1000)
+          && isText(request.resource.data.authorName, 120)
+          && request.resource.data.createdAt == request.time;
+        // The comment's author, or the post's author, may remove a comment.
+        allow delete: if signedIn() && (
+          resource.data.authorId == request.auth.uid
+          || get(/databases/$(database)/documents/posts/$(postId)).data.authorId == request.auth.uid);
+      }
+    }
+
+    // --------------------------------------------------------------- chat
+    match /rooms/{roomId}/messages/{messageId} {
+      allow read: if signedIn() && roomId in ['general', 'prayer', 'bible-study', 'testimonies'];
+      allow create: if signedIn()
+        && roomId in ['general', 'prayer', 'bible-study', 'testimonies']
+        && request.resource.data.senderId == request.auth.uid
+        && request.resource.data.roomId == roomId
+        && isText(request.resource.data.content, 1000)
+        && isText(request.resource.data.senderName, 120)
+        && request.resource.data.createdAt == request.time;
+      allow delete: if signedIn() && resource.data.senderId == request.auth.uid;
+    }
+
+    // ------------------------------------------------------------ reports
+    // Users can file reports; only the admin (console) can read them.
+    match /reports/{reportId} {
+      allow create: if signedIn()
+        && request.resource.data.reporterId == request.auth.uid
+        && isText(request.resource.data.reason, 500)
+        && isText(request.resource.data.contentPath, 300)
+        && request.resource.data.createdAt == request.time;
+    }
+
+    // Everything else is closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
