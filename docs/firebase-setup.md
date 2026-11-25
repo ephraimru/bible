@@ -23,7 +23,11 @@ no credit card is needed.
    into `lib/firebase_options.dart`; the next app build then uses the project.
    (Or run `flutterfire configure` yourself, which writes that file.)
 
-## 2. Granting Bishop after someone pays
+## 2. Bishop
+
+Members become Bishop **automatically when they reach 1,000 followers**
+(the security rules check the real count). You can also grant it yourself,
+for example after someone pays to skip the ladder:
 
 1. Firebase console → Authentication → **Users**: find the buyer's email and
    copy their **User UID**.
@@ -31,8 +35,9 @@ no credit card is needed.
 3. Click the `role` field and change its value to `bishop` → Update.
 
 The buyer's app switches to Bishop within seconds (they can publish blog
-posts). To undo, set `role` back to `believer`. Only the console can make
-someone a Bishop; the app's security rules forbid users from doing it.
+posts). To undo, set `role` back to `believer`. Apart from the 1,000-follower
+rule, only the console can make someone a Bishop; the security rules forbid
+users from granting it to themselves.
 
 ## 3. Moderation
 
@@ -47,7 +52,10 @@ someone a Bishop; the app's security rules forbid users from doing it.
 
 | Firestore path | What |
 |---|---|
-| `users/{uid}` | Public profile: name, bio, title, role. Never the email. |
+| `users/{uid}` | Public profile: name, bio, title, role, follower count. Never the email. |
+| `users/{uid}/followers/{followerUid}` | One document per follower |
+| `users/{uid}/following/{targetUid}` | Who the member follows |
+| `users/{uid}/private/progress` | The member's reading progress, saved verses, bookmarks, blocked people and settings, synced between their devices. Only they can read it. |
 | `posts/{postId}` | Blog posts (`likedBy` holds who liked it) |
 | `posts/{postId}/comments/{commentId}` | Comments |
 | `rooms/{roomId}/messages/{messageId}` | Chat messages; rooms are `general`, `prayer`, `bible-study`, `testimonies` |

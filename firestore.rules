@@ -43,7 +43,15 @@ service cloud.firestore {
     }
 
     function changedBy(field, amount) {
-      return request.resource.data[field] == resource.data.get(field, 0) + amount;
+      return request.resource.data.get(field, 0) == resource.data.get(field, 0) + amount;
+    }
+
+    function isFollower(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid)/followers/$(request.auth.uid));
+    }
+
+    function isFollowerAfter(uid) {
+      return existsAfter(/databases/$(database)/documents/users/$(uid)/followers/$(request.auth.uid));
     }
 
     // ------------------------------------------------------ user profiles
@@ -62,16 +70,54 @@ service cloud.firestore {
         && request.resource.data.canPostOnBlog == false;
 
       // Users may edit their name, bio and title, and report reading-based
-      // roles, but can never grant themselves Bishop.
+      // roles. They become Bishop only when the admin grants it (console) or
+      // automatically once they have 1,000+ verified followers.
       allow update: if isSelf(uid)
         && onlyChanged(['displayName', 'bio', 'chosenTitle', 'role'])
         && isText(request.resource.data.displayName, 80)
         && optionalText(request.resource.data, 'bio', 300)
         && optionalText(request.resource.data, 'chosenTitle', 40)
-        && resource.data.role != 'bishop'
-        && request.resource.data.role in ['believer', 'preacher', 'shepherd'];
+        && (
+          (resource.data.role != 'bishop'
+            && request.resource.data.role in ['believer', 'preacher', 'shepherd'])
+          || (request.resource.data.role == 'bishop'
+            && (resource.data.role == 'bishop' || resource.data.get('followersCount', 0) >= 1000))
+        );
+
+      // Anyone else may only move the follower count by one, together with
+      // creating or deleting their own follower document in the same write.
+      allow update: if signedIn() && request.auth.uid != uid
+        && onlyChanged(['followersCount'])
+        && ((changedBy('followersCount', 1) && !isFollower(uid) && isFollowerAfter(uid))
+          || (changedBy('followersCount', -1) && isFollower(uid) && !isFollowerAfter(uid)));
 
       allow delete: if isSelf(uid);
+
+      // users/{uid}/followers/{followerId}: one document per follower.
+      match /followers/{followerId} {
+        allow read: if signedIn();
+        allow create: if isSelf(followerId) && followerId != uid
+          && request.resource.data.followerId == followerId
+          && getAfter(/databases/$(database)/documents/users/$(uid)).data.get('followersCount', 0)
+             == get(/databases/$(database)/documents/users/$(uid)).data.get('followersCount', 0) + 1;
+        allow delete: if isSelf(followerId)
+          && getAfter(/databases/$(database)/documents/users/$(uid)).data.get('followersCount', 0)
+             == get(/databases/$(database)/documents/users/$(uid)).data.get('followersCount', 0) - 1;
+      }
+
+      // users/{uid}/following/{targetId}: the member's own list.
+      match /following/{targetId} {
+        allow read: if signedIn();
+        allow create: if isSelf(uid) && targetId != uid
+          && request.resource.data.targetId == targetId;
+        allow delete: if isSelf(uid);
+      }
+
+      // users/{uid}/private/progress: reading progress synced between the
+      // member's own devices. Nobody else can read it.
+      match /private/{docId} {
+        allow read, write: if isSelf(uid);
+      }
     }
 
     // --------------------------------------------------------------- blog

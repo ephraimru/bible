@@ -13,6 +13,7 @@ import '../../services/local_storage_service.dart';
 import '../../services/moderation_service.dart';
 import '../../widgets/message_bubble.dart';
 import '../../widgets/report_dialog.dart';
+import '../profile/member_profile_screen.dart';
 
 /// A live chat room. Long-press a message to copy, report, block or delete.
 class ChatRoomScreen extends ConsumerStatefulWidget {
@@ -153,6 +154,11 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
               )
             else ...[
               ListTile(
+                leading: const Icon(Icons.person_outline),
+                title: Text('View ${message.senderName ?? 'profile'}'),
+                onTap: () => Navigator.pop(context, 'profile'),
+              ),
+              ListTile(
                 leading: const Icon(Icons.flag_outlined),
                 title: const Text('Report message'),
                 onTap: () => Navigator.pop(context, 'report'),
@@ -198,6 +204,8 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         }
       case 'block':
         await _block(message);
+      case 'profile':
+        context.pushMemberProfile(message.senderId);
     }
   }
 

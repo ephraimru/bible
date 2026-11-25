@@ -1,6 +1,7 @@
 // Security-rule tests for firestore.rules, run against the Firestore emulator:
 //   firebase emulators:exec --only firestore --project demo-faith-mission \
 //     "npm --prefix test/firestore_rules test"
+import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { after, before, beforeEach, describe, test } from 'node:test';
 import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebase/rules-unit-testing';
@@ -75,6 +76,91 @@ describe('user profiles', () => {
   test('a Bishop granted by the admin cannot be downgraded or changed by the client', async () => {
     await seed('users/paul', { ...profile('bishop'), createdAt: new Date() });
     await assertFails(updateDoc(doc(db('paul'), 'users/paul'), { role: 'believer' }));
+  });
+});
+
+describe('following', () => {
+  beforeEach(async () => {
+    await seed('users/ruth', { ...profile(), createdAt: new Date() });
+    await seed('users/paul', { ...profile(), createdAt: new Date() });
+  });
+
+  const follow = (me, target) => {
+    const d = db(me);
+    const b = writeBatch(d);
+    b.set(doc(d, `users/${target}/followers/${me}`), { followerId: me, createdAt: serverTimestamp() });
+    b.update(doc(d, `users/${target}`), { followersCount: increment(1) });
+    b.set(doc(d, `users/${me}/following/${target}`), { targetId: target, createdAt: serverTimestamp() });
+    return b.commit();
+  };
+  const unfollow = (me, target) => {
+    const d = db(me);
+    const b = writeBatch(d);
+    b.delete(doc(d, `users/${target}/followers/${me}`));
+    b.update(doc(d, `users/${target}`), { followersCount: increment(-1) });
+    b.delete(doc(d, `users/${me}/following/${target}`));
+    return b.commit();
+  };
+  const count = async (uid) => {
+    let n;
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      n = (await getDoc(doc(ctx.firestore(), `users/${uid}`))).data().followersCount ?? 0;
+    });
+    return n;
+  };
+
+  test('follow and unfollow move the count by exactly one', async () => {
+    await assertSucceeds(follow('ruth', 'paul'));
+    assert.equal(await count('paul'), 1);
+    await assertSucceeds(unfollow('ruth', 'paul'));
+    assert.equal(await count('paul'), 0);
+  });
+
+  test('cannot inflate followers', async () => {
+    // Bumping the count without a follower document
+    await assertFails(updateDoc(doc(db('ruth'), 'users/paul'), { followersCount: increment(1) }));
+    // Adding more than one
+    const d = db('ruth');
+    const b = writeBatch(d);
+    b.set(doc(d, 'users/paul/followers/ruth'), { followerId: 'ruth', createdAt: serverTimestamp() });
+    b.update(doc(d, 'users/paul'), { followersCount: increment(5) });
+    await assertFails(b.commit());
+    // Following twice
+    await assertSucceeds(follow('ruth', 'paul'));
+    await assertFails(follow('ruth', 'paul'));
+    // Following on someone else's behalf, or yourself
+    await assertFails(follow('naomi', 'naomi'));
+    const d2 = db('ruth');
+    const b2 = writeBatch(d2);
+    b2.set(doc(d2, 'users/paul/followers/naomi'), { followerId: 'naomi', createdAt: serverTimestamp() });
+    b2.update(doc(d2, 'users/paul'), { followersCount: increment(1) });
+    await assertFails(b2.commit());
+  });
+
+  test('owners cannot set their own follower count', async () => {
+    await assertFails(updateDoc(doc(db('paul'), 'users/paul'), { followersCount: 5000 }));
+  });
+
+  test('Bishop is automatic only with 1,000+ followers', async () => {
+    await assertFails(updateDoc(doc(db('paul'), 'users/paul'), { role: 'bishop' }));
+    await seed('users/paul', { ...profile(), followersCount: 999, createdAt: new Date() });
+    await assertFails(updateDoc(doc(db('paul'), 'users/paul'), { role: 'bishop' }));
+    await seed('users/paul', { ...profile(), followersCount: 1000, createdAt: new Date() });
+    await assertSucceeds(updateDoc(doc(db('paul'), 'users/paul'), { role: 'bishop' }));
+  });
+
+  test('a Bishop can still edit their own name and bio', async () => {
+    await seed('users/paul', { ...profile('bishop'), createdAt: new Date() });
+    await assertSucceeds(updateDoc(doc(db('paul'), 'users/paul'), { displayName: 'Paul the Apostle', bio: 'Tentmaker' }));
+  });
+});
+
+describe('private progress', () => {
+  test('only the owner can read or write their progress', async () => {
+    await assertSucceeds(setDoc(doc(db('ruth'), 'users/ruth/private/progress'), { journey: { consecutiveDays: 3 } }));
+    await assertSucceeds(getDoc(doc(db('ruth'), 'users/ruth/private/progress')));
+    await assertFails(getDoc(doc(db('naomi'), 'users/ruth/private/progress')));
+    await assertFails(setDoc(doc(db('naomi'), 'users/ruth/private/progress'), { journey: {} }));
   });
 });
 

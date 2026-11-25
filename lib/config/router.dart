@@ -15,6 +15,7 @@ import '../screens/home/home_screen.dart';
 import '../screens/bible/bible_screen.dart';
 import '../screens/blog/blog_screen.dart';
 import '../screens/chat/chat_screen.dart';
+import '../screens/profile/member_profile_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/daily_verse/daily_verse_screen.dart';
 import '../screens/faith_journey/faith_journey_screen.dart';
@@ -163,6 +164,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/profile',
             name: 'profile',
             builder: (context, state) => const ProfileScreen(),
+          ),
+          GoRoute(
+            path: '/member/:uid',
+            name: 'member',
+            builder: (context, state) => MemberProfileScreen(
+              key: ValueKey(state.pathParameters['uid']),
+              uid: state.pathParameters['uid']!,
+            ),
           ),
         ],
       ),

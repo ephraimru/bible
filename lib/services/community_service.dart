@@ -98,12 +98,33 @@ class CommunityService {
   // --------------------------------------------------------------- blog
 
   /// Newest published posts first, updated live.
+  ///
+  /// Uses a single-field order only, so it works on a new Firebase project
+  /// without creating composite indexes. Unpublished posts are filtered here.
   Stream<List<BlogPostModel>> watchPosts({int limit = 50}) => _posts
-      .where('status', isEqualTo: BlogPostStatus.published.name)
       .orderBy('publishedAt', descending: true)
       .limit(limit)
       .snapshots()
-      .map((s) => s.docs.map(_post).whereType<BlogPostModel>().toList());
+      .map((s) => s.docs
+          .map(_post)
+          .whereType<BlogPostModel>()
+          .where((p) => p.status == BlogPostStatus.published)
+          .toList());
+
+  /// One member's posts, newest first (sorted here to avoid needing an index).
+  Stream<List<BlogPostModel>> watchPostsBy(String authorId, {int limit = 50}) => _posts
+      .where('authorId', isEqualTo: authorId)
+      .limit(limit)
+      .snapshots()
+      .map((s) {
+        final posts = s.docs
+            .map(_post)
+            .whereType<BlogPostModel>()
+            .where((p) => p.status == BlogPostStatus.published)
+            .toList()
+          ..sort((a, b) => (b.publishedAt ?? DateTime.now()).compareTo(a.publishedAt ?? DateTime.now()));
+        return posts;
+      });
 
   Stream<BlogPostModel?> watchPost(String postId) =>
       _posts.doc(postId).snapshots().map(_post);

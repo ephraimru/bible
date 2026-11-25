@@ -516,7 +516,7 @@ class FaithJourneyService {
       roleProgress: roleProgress,
       totalReadingStreak: journey.consecutiveDays,
       totalVersesRead: journey.versesRead,
-      totalFollowers: 0, // Will be populated from user data
+      totalFollowers: journey.followerCount,
       canBecomeBishop: nextRole == UserRole.bishop,
       canPostOnBlog: journey.canPostOnBlog || currentRole == UserRole.bishop,
       chosenTitle: journey.chosenTitle,

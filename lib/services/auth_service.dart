@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/user_model.dart';
 import 'local_storage_service.dart';
+import 'progress_sync_service.dart';
+import 'social_service.dart';
 
 final firebaseAuthProvider = Provider<FirebaseAuth>((ref) => FirebaseAuth.instance);
 final firestoreProvider = Provider<FirebaseFirestore>((ref) => FirebaseFirestore.instance);
@@ -65,7 +67,9 @@ class AuthService {
     this.isBackendConfigured = true,
   })  : _auth = auth,
         _firestore = firestore,
-        _storage = localStorageService {
+        _storage = localStorageService,
+        _progressSync = ProgressSyncService(firestore, localStorageService),
+        _social = SocialService(firestore) {
     final user = _auth.currentUser;
     if (user != null) _currentUser = _storage.getUserSync(user.uid);
     _authSub = _auth.authStateChanges().listen(_onAuthChanged);
@@ -90,6 +94,8 @@ class AuthService {
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
   final LocalStorageService _storage;
+  final ProgressSyncService _progressSync;
+  final SocialService _social;
   final _authStateController = StreamController<UserModel?>.broadcast();
 
   StreamSubscription<User?>? _authSub;
@@ -113,11 +119,15 @@ class AuthService {
     _remoteSub = null;
     _localSub = null;
     if (user == null) {
+      await _progressSync.stop();
       _setCurrentUser(null);
       return;
     }
     _setCurrentUser(await _ensureLocalUser(user));
     _startProfileSync(user.uid);
+    // Bring reading progress from the member's other devices (and keep it
+    // in step from now on).
+    unawaited(_progressSync.start(user.uid));
   }
 
   void _setCurrentUser(UserModel? user) {
@@ -159,13 +169,27 @@ class AuthService {
         return;
       }
       final data = snap.data()!;
-      final remoteRole = UserRole.values.asNameMap()[data['role']] ?? UserRole.believer;
+      final followers = (data['followersCount'] as num?)?.toInt() ?? 0;
+      var remoteRole = UserRole.values.asNameMap()[data['role']] ?? UserRole.believer;
+
+      // 1,000+ verified followers: promote to Bishop (firestore.rules checks
+      // the count, so this can't be faked).
+      if (remoteRole != UserRole.bishop && followers >= SocialService.bishopFollowers) {
+        try {
+          await _profileDoc(uid).update({'role': UserRole.bishop.name});
+          remoteRole = UserRole.bishop;
+        } catch (e) {
+          debugPrint('Automatic Bishop promotion failed: $e');
+        }
+      }
+
       final updates = <String, dynamic>{};
       final remoteBishop = remoteRole == UserRole.bishop;
       final localBishop = local.role == UserRole.bishop;
       if (remoteBishop != localBishop) {
         updates['role'] = remoteBishop ? UserRole.bishop : remoteRole;
       }
+      if (followers != local.followersCount) updates['followersCount'] = followers;
       for (final flag in ['hasPaidToSkipLadder', 'canPostOnBlog']) {
         final remote = data[flag] == true;
         final current = flag == 'hasPaidToSkipLadder' ? local.hasPaidToSkipLadder : local.canPostOnBlog;
@@ -180,6 +204,7 @@ class AuthService {
         };
         if (remote is String && remote.isNotEmpty && remote != current) updates[field] = remote;
       }
+      await _syncJourney(uid, followers: followers, role: remoteRole);
       if (updates.isNotEmpty) await _storage.updateUser(uid, updates);
     }, onError: (Object e) => debugPrint('Profile sync failed: $e'));
 
@@ -197,6 +222,28 @@ class AuthService {
         debugPrint('Profile upload failed: $e');
       }
     });
+  }
+
+  /// Keeps the faith journey's follower count and Bishop status in step with
+  /// the public profile, so progress screens show them.
+  Future<void> _syncJourney(String uid, {required int followers, required UserRole role}) async {
+    final journey = await _storage.getFaithJourney(uid);
+    if (journey == null) return;
+    final bishop = role == UserRole.bishop;
+    final updates = <String, dynamic>{
+      if (journey.followerCount != followers) 'followerCount': followers,
+      if (bishop && journey.currentRole != UserRole.bishop) ...{
+        'currentRole': UserRole.bishop,
+        'hasReachedBishop': true,
+        'canPostOnBlog': true,
+      },
+      // Bishop was withdrawn by the admin: fall back to the published role.
+      if (!bishop && journey.currentRole == UserRole.bishop) ...{
+        'currentRole': role,
+        'canPostOnBlog': false,
+      },
+    };
+    if (updates.isNotEmpty) await _storage.updateFaithJourney(uid, updates);
   }
 
   Future<void> _createRemoteProfile(UserModel user) async {
@@ -338,7 +385,10 @@ class AuthService {
     }
   }
 
-  Future<void> signOut() => _auth.signOut();
+  Future<void> signOut() async {
+    await _progressSync.flush();
+    await _auth.signOut();
+  }
 
   /// Deletes the account, its public profile and this device's copy of it.
   /// Blog posts, comments and chat messages the user wrote are not removed.
@@ -346,6 +396,9 @@ class AuthService {
     final user = _auth.currentUser;
     if (user == null) throw AuthException('No user logged in');
     try {
+      await _progressSync.stop();
+      await _social.unfollowAll(user.uid);
+      await _progressSync.deleteRemote(user.uid);
       await _profileDoc(user.uid).delete();
       await user.delete();
     } catch (e) {
@@ -360,6 +413,7 @@ class AuthService {
   bool get isEmailVerified => _auth.currentUser?.emailVerified ?? false;
 
   void dispose() {
+    _progressSync.stop();
     _authSub?.cancel();
     _remoteSub?.cancel();
     _localSub?.cancel();

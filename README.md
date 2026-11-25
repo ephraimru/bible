@@ -123,8 +123,8 @@ Verse ids are readable: `John.3.16`, `1 John.4.8`.
 Email-and-password accounts with Firebase Authentication (`AuthService`),
 including password-reset emails. Each account has a public profile at
 `users/{uid}` in Firestore (name, bio, title, role; never the email) and a
-copy on the device for the offline features. Bishop is granted by the admin
-in the Firebase console and syncs to the app.
+copy on the device for the offline features. Bishop comes automatically at 1,000
+followers, or is granted by the admin in the Firebase console, and syncs to the app.
 
 ### Blog and chat
 `CommunityService` stores posts, comments, likes and chat messages in
@@ -133,6 +133,20 @@ signed in can like, comment and chat in four fixed rooms. Members can report
 content (to `reports`, read by the admin in the console) and block people.
 Access is enforced by [`firestore.rules`](firestore.rules), which has its own
 emulator tests in `test/firestore_rules`.
+
+### Following and Bishop
+Members follow each other from member profile pages (tap an author's name, or
+long-press a chat message). Follower counts can't be faked: the security rules
+only allow a count change together with the matching follower record. At
+1,000 followers the app promotes the member to Bishop, which the rules also
+verify. The admin can grant Bishop in the console too.
+
+### Progress on every device
+`ProgressSyncService` mirrors reading progress, saved and liked verses,
+bookmarks, blocked people and settings to `users/{uid}/private/progress`
+(readable only by the member) and merges changes from the member's other
+devices live: chapters are combined, totals keep the larger value, and the
+current streak comes from the most recently used device.
 
 ### Storage on the device
 The Bible, reading progress, settings, saved verses, bookmarks and blocked
@@ -187,10 +201,8 @@ test/                            # unit tests
 
 ## Known limitations
 
-- Following other members is not implemented, so Bishop is reached by the
-  admin granting it (the 1,000-follower route needs following first).
-- Reading progress is per device; it does not follow the account to a new phone.
 - In-app purchases and Google/Apple sign-in are not implemented.
+- Notifications for new followers, comments or messages are not implemented.
 
 ## License
 

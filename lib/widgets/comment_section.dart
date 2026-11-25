@@ -9,6 +9,7 @@ import '../services/auth_service.dart';
 import '../services/community_service.dart';
 import '../services/moderation_service.dart';
 import 'report_dialog.dart';
+import '../screens/profile/member_profile_screen.dart';
 
 /// Live comments on a blog post, with a box to add one.
 class CommentSection extends ConsumerStatefulWidget {
@@ -27,7 +28,7 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
   List<BlogCommentModel> _comments = [];
   bool _isLoading = true;
   final _commentController = TextEditingController();
-  
+
   bool _isSending = false;
 
   StreamSubscription<List<BlogCommentModel>>? _sub;
@@ -35,19 +36,25 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
   @override
   void initState() {
     super.initState();
-    _sub = ref.read(communityServiceProvider).watchComments(widget.postId).listen(
-      (comments) {
-        if (!mounted) return;
-        final blocked = ref.read(currentUserProvider)?.blockedUserIds ?? const [];
-        setState(() {
-          _comments = comments.where((c) => !blocked.contains(c.authorId)).toList();
-          _isLoading = false;
-        });
-      },
-      onError: (Object e) {
-        if (mounted) setState(() => _isLoading = false);
-      },
-    );
+    _sub = ref
+        .read(communityServiceProvider)
+        .watchComments(widget.postId)
+        .listen(
+          (comments) {
+            if (!mounted) return;
+            final blocked =
+                ref.read(currentUserProvider)?.blockedUserIds ?? const [];
+            setState(() {
+              _comments = comments
+                  .where((c) => !blocked.contains(c.authorId))
+                  .toList();
+              _isLoading = false;
+            });
+          },
+          onError: (Object e) {
+            if (mounted) setState(() => _isLoading = false);
+          },
+        );
   }
 
   @override
@@ -60,7 +67,10 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
   void _toast(String message, {bool error = false}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: error ? Colors.red : null),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: error ? Colors.red : null,
+      ),
     );
   }
 
@@ -69,13 +79,18 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
     final user = ref.read(currentUserProvider);
     if (text.isEmpty || user == null) return;
     if (text.length > CommunityService.maxCommentLength) {
-      _toast('Comments can be up to ${CommunityService.maxCommentLength} characters.', error: true);
+      _toast(
+        'Comments can be up to ${CommunityService.maxCommentLength} characters.',
+        error: true,
+      );
       return;
     }
 
     setState(() => _isSending = true);
     try {
-      final moderation = await ref.read(moderationServiceProvider).moderateBlogComment(
+      final moderation = await ref
+          .read(moderationServiceProvider)
+          .moderateBlogComment(
             content: text,
             authorId: user.id,
             postId: widget.postId,
@@ -84,14 +99,15 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
         _toast('Your comment was blocked: ${moderation.reason}', error: true);
         return;
       }
-      await ref.read(communityServiceProvider).addComment(
-            postId: widget.postId,
-            author: user,
-            content: text,
-          );
+      await ref
+          .read(communityServiceProvider)
+          .addComment(postId: widget.postId, author: user, content: text);
       _commentController.clear();
     } catch (e) {
-      _toast('Could not post your comment. Check your connection.', error: true);
+      _toast(
+        'Could not post your comment. Check your connection.',
+        error: true,
+      );
     } finally {
       if (mounted) setState(() => _isSending = false);
     }
@@ -99,7 +115,9 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
 
   Future<void> _deleteComment(BlogCommentModel comment) async {
     try {
-      await ref.read(communityServiceProvider).deleteComment(widget.postId, comment.id);
+      await ref
+          .read(communityServiceProvider)
+          .deleteComment(widget.postId, comment.id);
     } catch (_) {
       _toast('Could not delete the comment.', error: true);
     }
@@ -111,9 +129,14 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
     final reason = await showReportDialog(context);
     if (reason == null) return;
     try {
-      await ref.read(communityServiceProvider).report(
+      await ref
+          .read(communityServiceProvider)
+          .report(
             reporterId: uid,
-            contentPath: CommunityService.commentPath(widget.postId, comment.id),
+            contentPath: CommunityService.commentPath(
+              widget.postId,
+              comment.id,
+            ),
             authorId: comment.authorId,
             reason: reason,
             excerpt: comment.content,
@@ -140,14 +163,14 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
             ),
           ],
         ),
-        
+
         const SizedBox(height: AppTheme.md),
-        
+
         // Comments list
         _buildCommentsList(context),
-        
+
         const SizedBox(height: AppTheme.md),
-        
+
         // Comment input
         _buildCommentInput(context),
       ],
@@ -156,11 +179,9 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
 
   Widget _buildCommentsList(BuildContext context) {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
-    
+
     if (_comments.isEmpty) {
       return Container(
         padding: const EdgeInsets.symmetric(vertical: AppTheme.lg),
@@ -171,31 +192,27 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
         child: Center(
           child: Column(
             children: [
-              const Icon(
-                Icons.comment_outlined,
-                size: 32,
-                color: Colors.grey,
-              ),
+              const Icon(Icons.comment_outlined, size: 32, color: Colors.grey),
               const SizedBox(height: AppTheme.sm),
               Text(
                 'No comments yet',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
               ),
               const SizedBox(height: AppTheme.sm),
               Text(
                 'Be the first to comment!',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.grey,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colors.grey),
               ),
             ],
           ),
         ),
       );
     }
-    
+
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -210,12 +227,10 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
   Widget _buildCommentItem(BuildContext context, BlogCommentModel comment) {
     final userId = ref.read(authServiceProvider).currentUserId;
     final isCurrentUser = comment.authorId == userId;
-    
+
     return Card(
       elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: AppTheme.mediumBorderRadius,
-      ),
+      shape: RoundedRectangleBorder(borderRadius: AppTheme.mediumBorderRadius),
       margin: const EdgeInsets.only(bottom: AppTheme.md),
       child: Padding(
         padding: const EdgeInsets.all(AppTheme.md),
@@ -246,41 +261,47 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
                       ),
                     ),
                   ),
-                
+
                 const SizedBox(width: AppTheme.sm),
-                
+
                 // Author name
                 Expanded(
-                  child: Text(
-                    comment.authorName ?? 'Anonymous',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                  child: GestureDetector(
+                    onTap: () => context.pushMemberProfile(comment.authorId),
+                    child: Text(
+                      comment.authorName ?? 'Anonymous',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
-                
+
                 // Delete: the comment's author or the post's author
                 if (isCurrentUser || widget.postAuthorId == userId)
                   PopupMenuButton<String>(
                     icon: const Icon(Icons.more_vert, size: 18),
                     onSelected: (_) => _deleteComment(comment),
                     itemBuilder: (context) => const [
-                      PopupMenuItem(value: 'delete', child: Text('Delete comment')),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Text('Delete comment'),
+                      ),
                     ],
                   ),
               ],
             ),
-            
+
             const SizedBox(height: AppTheme.sm),
-            
+
             // Comment content
             Text(
               comment.content,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
-            
+
             const SizedBox(height: AppTheme.sm),
-            
+
             // Comment metadata
             Row(
               children: [
@@ -293,15 +314,15 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
-                
+
                 const Spacer(),
-                
+
                 // Timestamp
                 Text(
                   _formatDate(comment.createdAt ?? DateTime.now()),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.grey,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.grey),
                 ),
               ],
             ),
@@ -313,7 +334,7 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
 
   Widget _buildCommentInput(BuildContext context) {
     final userId = ref.read(authServiceProvider).currentUserId;
-    
+
     if (userId == null) {
       return Container(
         padding: const EdgeInsets.all(AppTheme.md),
@@ -329,7 +350,7 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
         ),
       );
     }
-    
+
     return Container(
       padding: const EdgeInsets.all(AppTheme.md),
       decoration: BoxDecoration(
@@ -345,9 +366,9 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
             backgroundColor: AppTheme.primaryColor,
             child: Icon(Icons.person, color: Colors.white, size: 16),
           ),
-          
+
           const SizedBox(width: AppTheme.md),
-          
+
           // Comment input
           Expanded(
             child: TextField(
@@ -361,9 +382,9 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
               onSubmitted: (_) => _sendComment(),
             ),
           ),
-          
+
           const SizedBox(width: AppTheme.md),
-          
+
           // Send button
           IconButton(
             icon: _isSending
@@ -385,7 +406,7 @@ class _CommentSectionState extends ConsumerState<CommentSection> {
   String _formatDate(DateTime date) {
     final now = DateTime.now();
     final diff = now.difference(date);
-    
+
     if (diff.inDays > 7) {
       return '${diff.inDays} days ago';
     } else if (diff.inDays > 0) {

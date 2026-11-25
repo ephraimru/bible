@@ -66,6 +66,22 @@ void main() {
     expect((await storage.getUser(user.id))!.role, UserRole.bishop);
   });
 
+  test('1,000 followers makes a member a Bishop automatically', () async {
+    final user = await auth.signUpWithEmailAndPassword(
+      email: 'timothy@example.com', password: 'lois-eunice', displayName: 'Timothy');
+    await settle();
+    await firestore.collection('users').doc(user.id).update({'followersCount': 999});
+    await settle();
+    expect((await firestore.collection('users').doc(user.id).get()).data()!['role'], 'believer');
+
+    await firestore.collection('users').doc(user.id).update({'followersCount': 1000});
+    await settle();
+    expect((await firestore.collection('users').doc(user.id).get()).data()!['role'], 'bishop');
+    final local = (await storage.getUser(user.id))!;
+    expect(local.role, UserRole.bishop);
+    expect(local.followersCount, 1000);
+  });
+
   test('profile edits on the device are published, but never a self-made Bishop', () async {
     final user = await auth.signUpWithEmailAndPassword(
       email: 'lydia@example.com', password: 'purple-cloth', displayName: 'Lydia');

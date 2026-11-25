@@ -7,6 +7,10 @@ import '../../models/user_model.dart';
 import '../../models/faith_journey_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/premium_service.dart';
+import '../../models/blog_model.dart';
+import '../../services/community_service.dart';
+import '../../services/social_service.dart';
+import 'member_profile_screen.dart';
 import '../../services/faith_journey_service.dart';
 import '../../widgets/profile_header.dart';
 import '../../widgets/stats_card.dart';
@@ -319,11 +323,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               label: 'Day Streak',
               color: Colors.green,
             ),
-            StatsCard(
-              icon: Icons.favorite_outline,
-              value: '${user.likedVersesCount}',
-              label: 'Liked',
-              color: Colors.red,
+            StreamBuilder<int>(
+              stream: ref.read(socialServiceProvider).watchFollowingCount(user.id),
+              builder: (context, snap) => StatsCard(
+                icon: Icons.person_add_alt,
+                value: '${snap.data ?? 0}',
+                label: 'Following',
+                color: Colors.red,
+              ),
             ),
             StatsCard(
               icon: Icons.bookmark_outline,
@@ -331,11 +338,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               label: 'Saved',
               color: Colors.amber,
             ),
-            StatsCard(
-              icon: Icons.article_outlined,
-              value: '${user.blogPostsCount}',
-              label: 'Blog Posts',
-              color: Colors.purple,
+            StreamBuilder<List<BlogPostModel>>(
+              stream: ref.read(communityServiceProvider).watchPostsBy(user.id),
+              builder: (context, snap) => StatsCard(
+                icon: Icons.article_outlined,
+                value: '${snap.data?.length ?? 0}',
+                label: 'Blog Posts',
+                color: Colors.purple,
+              ),
             ),
             StatsCard(
               icon: Icons.people_outline,
@@ -344,6 +354,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               color: Colors.teal,
             ),
           ],
+        ),
+        TextButton.icon(
+          onPressed: () => context.pushMemberProfile(user.id),
+          icon: const Icon(Icons.public),
+          label: const Text('See your public profile'),
         ),
       ],
     );

@@ -37,8 +37,9 @@ upload key is ever lost, you can ask Google Play support to reset it.
 
 ## Granting Bishop
 
-After a buyer pays (direct APK only), set `role` to `bishop` on their
-`users/{uid}` document in the Firebase console. Step by step:
+Members become Bishop automatically at 1,000 followers. After a buyer pays
+(direct APK only), set `role` to `bishop` on their `users/{uid}` document in
+the Firebase console. Step by step:
 [firebase-setup.md → Granting Bishop](firebase-setup.md#2-granting-bishop-after-someone-pays).
 
 ## Play Console checklist
@@ -66,6 +67,7 @@ After a buyer pays (direct APK only), set `role` to `bishop` on their
      management*. **Name**: collected, required, for *App functionality*.
    - Messages → **Other in-app messages** (chat): *App functionality*.
    - App activity → **Other user-generated content** (posts, comments):
+     *App functionality*. **Other actions** (reading progress, follows):
      *App functionality*.
    - Encrypted in transit: **Yes**. Users can request deletion: **Yes**
      (Settings → Delete Account, or email the admin).
@@ -97,10 +99,10 @@ A VERSE FOR EVERY DAY
 Start each day with a hand-picked verse of the day.
 
 GROW ON YOUR FAITH JOURNEY
-Mark chapters as read, build a daily reading streak, and grow from Believer to Preacher (30 days) and Shepherd (365 days). Reach milestones and choose a title as you go.
+Mark chapters as read, build a daily reading streak, and grow from Believer to Preacher (30 days) and Shepherd (365 days), then to Bishop at 1,000 followers. Your progress follows you to any phone you sign in on.
 
 COMMUNITY
-Read the blog, like and comment on posts, and join live chat rooms for gospel discussion, prayer requests, Bible study and testimonies. Moderation keeps conversations respectful while letting you quote Scripture freely, and you can report or block anyone.
+Follow other members, read the blog, like and comment on posts, and join live chat rooms for gospel discussion, prayer requests, Bible study and testimonies. Moderation keeps conversations respectful while letting you quote Scripture freely, and you can report or block anyone.
 
 GENTLE REMINDERS
 Optional daily reminders help you keep your reading habit.

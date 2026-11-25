@@ -10,6 +10,7 @@ import '../../config/theme.dart';
 import '../../models/blog_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/community_service.dart';
+import '../profile/member_profile_screen.dart';
 import '../../services/local_storage_service.dart';
 import '../../widgets/report_dialog.dart';
 import '../../widgets/comment_section.dart';
@@ -38,21 +39,28 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   void initState() {
     super.initState();
     final user = ref.read(currentUserProvider);
-    _isBookmarked = user?.bookmarkedBlogPostIds.contains(widget.postId) ?? false;
-    _sub = ref.read(communityServiceProvider).watchPost(widget.postId).listen(
-      (post) {
-        if (!mounted) return;
-        setState(() {
-          _post = post;
-          _isLoading = false;
-        });
-      },
-      onError: (Object e) {
-        if (mounted) setState(() => _isLoading = false);
-      },
-    );
+    _isBookmarked =
+        user?.bookmarkedBlogPostIds.contains(widget.postId) ?? false;
+    _sub = ref
+        .read(communityServiceProvider)
+        .watchPost(widget.postId)
+        .listen(
+          (post) {
+            if (!mounted) return;
+            setState(() {
+              _post = post;
+              _isLoading = false;
+            });
+          },
+          onError: (Object e) {
+            if (mounted) setState(() => _isLoading = false);
+          },
+        );
     // Count the view (best effort).
-    ref.read(communityServiceProvider).recordView(widget.postId).catchError((_) {});
+    ref
+        .read(communityServiceProvider)
+        .recordView(widget.postId)
+        .catchError((_) {});
   }
 
   @override
@@ -62,7 +70,10 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   }
 
   void _toast(String message) {
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    if (mounted)
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _toggleLike() async {
@@ -70,7 +81,9 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
     if (uid == null || _post == null || _likeBusy) return;
     setState(() => _likeBusy = true);
     try {
-      await ref.read(communityServiceProvider).setPostLiked(_post!.id, uid, !_isLiked);
+      await ref
+          .read(communityServiceProvider)
+          .setPostLiked(_post!.id, uid, !_isLiked);
     } catch (_) {
       _toast('Could not update your like. Check your connection.');
     } finally {
@@ -94,9 +107,12 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   Future<void> _copyPost() async {
     final post = _post;
     if (post == null) return;
-    await Clipboard.setData(ClipboardData(
-      text: '${post.title}\n\n${post.content}\n\n— ${post.authorName ?? 'Faith Mission'}',
-    ));
+    await Clipboard.setData(
+      ClipboardData(
+        text:
+            '${post.title}\n\n${post.content}\n\n— ${post.authorName ?? 'Faith Mission'}',
+      ),
+    );
     _toast('Post copied to clipboard');
   }
 
@@ -107,7 +123,9 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
     final reason = await showReportDialog(context);
     if (reason == null) return;
     try {
-      await ref.read(communityServiceProvider).report(
+      await ref
+          .read(communityServiceProvider)
+          .report(
             reporterId: uid,
             contentPath: CommunityService.postPath(post.id),
             authorId: post.authorId,
@@ -129,8 +147,14 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
         title: const Text('Delete post?'),
         content: const Text('This removes the post for everyone.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
         ],
       ),
     );
@@ -155,20 +179,24 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
               onSelected: (v) => v == 'delete' ? _delete() : _report(),
               itemBuilder: (context) => [
                 if (isAuthor)
-                  const PopupMenuItem(value: 'delete', child: Text('Delete post'))
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Text('Delete post'),
+                  )
                 else
-                  const PopupMenuItem(value: 'report', child: Text('Report post')),
+                  const PopupMenuItem(
+                    value: 'report',
+                    child: Text('Report post'),
+                  ),
               ],
             ),
         ],
       ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(),
-            )
+          ? const Center(child: CircularProgressIndicator())
           : _post == null
-              ? _buildErrorView(context)
-              : _buildPostDetailView(context),
+          ? _buildErrorView(context)
+          : _buildPostDetailView(context),
     );
   }
 
@@ -177,22 +205,15 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.article_outlined,
-            size: 64,
-            color: Colors.grey,
-          ),
+          const Icon(Icons.article_outlined, size: 64, color: Colors.grey),
           const SizedBox(height: AppTheme.md),
-          Text(
-            'Post not found',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
+          Text('Post not found', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: AppTheme.sm),
           Text(
             'The post you are looking for could not be found',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
           ),
           const SizedBox(height: AppTheme.lg),
           ElevatedButton(
@@ -212,32 +233,36 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
         children: [
           // Post header
           _buildPostHeader(context),
-          
+
           const SizedBox(height: AppTheme.lg),
-          
+
           // Post content
           _buildPostContent(context),
-          
+
           const SizedBox(height: AppTheme.lg),
-          
+
           // Post actions
           _buildPostActions(context),
-          
+
           const SizedBox(height: AppTheme.lg),
-          
+
           // Post metadata
           _buildPostMetadata(context),
-          
+
           const SizedBox(height: AppTheme.lg),
-          
+
           // Author info
           _buildAuthorInfo(context),
-          
+
           const SizedBox(height: AppTheme.lg),
-          
+
           // Comments section
-          CommentSection(key: _commentsKey, postId: widget.postId, postAuthorId: _post!.authorId),
-          
+          CommentSection(
+            key: _commentsKey,
+            postId: widget.postId,
+            postAuthorId: _post!.authorId,
+          ),
+
           const SizedBox(height: AppTheme.lg),
         ],
       ),
@@ -257,24 +282,21 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
             borderRadius: AppTheme.mediumBorderRadius,
           ),
         ),
-        
+
         const SizedBox(height: AppTheme.md),
-        
+
         // Title
-        Text(
-          _post!.title,
-          style: Theme.of(context).textTheme.displaySmall,
-        ),
-        
+        Text(_post!.title, style: Theme.of(context).textTheme.displaySmall),
+
         const SizedBox(height: AppTheme.sm),
-        
+
         // Excerpt
         if (_post!.excerpt != null && _post!.excerpt!.isNotEmpty)
           Text(
             _post!.excerpt!,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Colors.grey,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(color: Colors.grey),
           ),
       ],
     );
@@ -283,17 +305,14 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   Widget _buildPostContent(BuildContext context) {
     return Card(
       elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: AppTheme.mediumBorderRadius,
-      ),
+      shape: RoundedRectangleBorder(borderRadius: AppTheme.mediumBorderRadius),
       child: Padding(
         padding: const EdgeInsets.all(AppTheme.lg),
         child: Text(
           _post!.content,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontSize: 16,
-                height: 1.6,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontSize: 16, height: 1.6),
         ),
       ),
     );
@@ -320,9 +339,9 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
         ),
         const SizedBox(width: AppTheme.sm),
         Text('${_post!.likes}'),
-        
+
         const SizedBox(width: AppTheme.md),
-        
+
         // Comment button
         IconButton.filledTonal(
           icon: const Icon(Icons.comment_outlined),
@@ -330,7 +349,10 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
           onPressed: () {
             final target = _commentsKey.currentContext;
             if (target != null) {
-              Scrollable.ensureVisible(target, duration: const Duration(milliseconds: 300));
+              Scrollable.ensureVisible(
+                target,
+                duration: const Duration(milliseconds: 300),
+              );
             }
           },
           style: IconButton.styleFrom(
@@ -343,9 +365,9 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
         ),
         const SizedBox(width: AppTheme.sm),
         Text('${_post!.comments}'),
-        
+
         const SizedBox(width: AppTheme.md),
-        
+
         // Bookmark button
         IconButton.filledTonal(
           icon: Icon(
@@ -361,9 +383,9 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
             ),
           ),
         ),
-        
+
         const SizedBox(width: AppTheme.md),
-        
+
         // Copy button
         IconButton.filledTonal(
           icon: const Icon(Icons.copy_outlined),
@@ -393,9 +415,9 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
             Text('${_post!.views} views'),
           ],
         ),
-        
+
         const SizedBox(width: AppTheme.md),
-        
+
         // Reading time
         Row(
           children: [
@@ -404,16 +426,18 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
             Text('${_post!.readingTime} min read'),
           ],
         ),
-        
+
         const SizedBox(width: AppTheme.md),
-        
+
         // Published date
         Row(
           children: [
             const Icon(Icons.calendar_today_outlined, size: 16),
             const SizedBox(width: AppTheme.sm),
             Text(
-              DateFormat('MMM dd, yyyy').format(_post!.publishedAt ?? DateTime.now()),
+              DateFormat(
+                'MMM dd, yyyy',
+              ).format(_post!.publishedAt ?? DateTime.now()),
             ),
           ],
         ),
@@ -422,58 +446,61 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   }
 
   Widget _buildAuthorInfo(BuildContext context) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: AppTheme.mediumBorderRadius,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppTheme.lg),
-        child: Row(
-          children: [
-            // Author avatar
-            if (_post!.authorPhotoUrl != null)
-              CircleAvatar(
-                radius: 24,
-                backgroundImage: NetworkImage(_post!.authorPhotoUrl!),
-              )
-            else
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: AppTheme.primaryColor,
-                child: Text(
-                  _post!.authorName?.isNotEmpty ?? false
-                      ? _post!.authorName![0].toUpperCase()
-                      : 'A',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+    return InkWell(
+      onTap: () => context.pushMemberProfile(_post!.authorId),
+      borderRadius: AppTheme.mediumBorderRadius,
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: AppTheme.mediumBorderRadius,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(AppTheme.lg),
+          child: Row(
+            children: [
+              // Author avatar
+              if (_post!.authorPhotoUrl != null)
+                CircleAvatar(
+                  radius: 24,
+                  backgroundImage: NetworkImage(_post!.authorPhotoUrl!),
+                )
+              else
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: AppTheme.primaryColor,
+                  child: Text(
+                    _post!.authorName?.isNotEmpty ?? false
+                        ? _post!.authorName![0].toUpperCase()
+                        : 'A',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
+
+              const SizedBox(width: AppTheme.md),
+
+              // Author info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _post!.authorName ?? 'Anonymous',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Text(
+                      'Author',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                    ),
+                  ],
+                ),
               ),
-            
-            const SizedBox(width: AppTheme.md),
-            
-            // Author info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _post!.authorName ?? 'Anonymous',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  Text(
-                    'Author',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-            
-          ],
+            ],
+          ),
         ),
       ),
     );
