@@ -28,9 +28,11 @@ A fluid mobile faith mission app built with Flutter. It works fully offline: the
 - **Manual Reporting**: Users can flag inappropriate content
 - **Gospel-Focused**: Ensures all discussions stay focused on the Gospel
 
-### Premium Features (planned)
+### Free features and Bishop access
 
-> In-app purchases are not wired up yet. The Premium screen shows the plans, but every purchase is refused with a "coming soon" message until a payment provider is added.
+> **Every feature is free.** The only locked item is skipping the faith-journey ladder straight to Bishop. In APKs shared directly, users contact the admin to arrange payment and receive a signed unlock code; the Google Play build keeps it locked with no payment instructions (Bishop via 1,000 followers). See `docs/google-play.md`.
+
+The items below are the original plan and are not implemented:
 
 - **Advanced Search**: Enhanced Bible search capabilities
 - **Offline Mode**: Download and read the Bible without internet
@@ -82,6 +84,12 @@ changing a model:
 ```bash
 dart run build_runner build
 ```
+
+### Google Play and direct builds
+
+See [`docs/google-play.md`](docs/google-play.md) for the two Android builds
+(Google Play bundle and direct APK), signing, Bishop unlock codes, the privacy
+policy and the Play Console checklist.
 
 ### Android release signing
 
