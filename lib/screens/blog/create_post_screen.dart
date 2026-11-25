@@ -158,7 +158,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               const SizedBox(height: AppTheme.lg),
               ElevatedButton(
                 onPressed: () => context.go('/premium'),
-                child: const Text('Upgrade to Bishop'),
+                child: const Text('How to become a Bishop'),
               ),
             ],
           ),
@@ -172,10 +172,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         actions: [
           TextButton(
             onPressed: _isLoading ? null : _submit,
-            child: const Text(
-              'Publish',
-              style: TextStyle(color: Colors.white),
-            ),
+            child: const Text('Publish'),
           ),
         ],
       ),

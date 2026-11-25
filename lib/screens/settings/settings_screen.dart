@@ -112,6 +112,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     const Divider(),
                     ListTile(
+                      leading: const Icon(Icons.badge_outlined, color: Colors.deepPurple),
+                      title: const Text('Your Title'),
+                      subtitle: Text(user.chosenTitle ?? 'Not chosen'),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: _showTitleSelection,
+                    ),
+                    const Divider(),
+                    ListTile(
                       leading: const Icon(Icons.history, color: Colors.teal),
                       title: const Text('Reading History'),
                       subtitle: Text('${user.totalReadingDays} days of reading'),
@@ -284,11 +292,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Future<void> _updatePreference(String userId, String key, bool value) async {
+  Future<void> _updatePreference(String userId, String key, Object value) async {
     final localStorage = ref.read(localStorageServiceProvider);
+    final user = await localStorage.getUser(userId);
+    if (user == null) return;
+    // Preferences are one map on the profile: merge so other settings stay.
     await localStorage.updateUser(userId, {
-      'preferences.$key': value,
-      'updatedAt': DateTime.now(),
+      'preferences': {...user.preferences, key: value},
     });
   }
 
@@ -306,11 +316,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     
     if (time != null) {
       final timeString = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
-      final localStorage = ref.read(localStorageServiceProvider);
-      await localStorage.updateUser(user.id, {
-        'preferences.reminderTime': timeString,
-        'updatedAt': DateTime.now(),
-      });
+      await _updatePreference(user.id, 'reminderTime', timeString);
     }
   }
 
@@ -335,7 +341,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 title: Text(availableTitles[index]),
                 onTap: () async {
                   await faithJourneyService.setChosenTitle(user.id, availableTitles[index]);
-                  if (mounted) Navigator.of(context).pop();
+                  if (context.mounted) Navigator.of(context).pop();
                 },
               );
             },

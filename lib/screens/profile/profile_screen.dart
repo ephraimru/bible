@@ -6,6 +6,7 @@ import '../../config/theme.dart';
 import '../../models/user_model.dart';
 import '../../models/faith_journey_model.dart';
 import '../../services/local_auth_service.dart';
+import '../../services/premium_service.dart';
 import '../../services/faith_journey_service.dart';
 import '../../widgets/profile_header.dart';
 import '../../widgets/stats_card.dart';
@@ -395,6 +396,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Widget _buildPremiumSection(BuildContext context, UserModel user) {
+    final isBishop = PremiumService.isBishop(user);
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(
@@ -407,64 +409,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           children: [
             Row(
               children: [
-                const Icon(Icons.star_outline, color: Colors.amber),
+                const Icon(Icons.volunteer_activism, color: AppTheme.primaryColor),
                 const SizedBox(width: AppTheme.sm),
                 Text(
-                  'Premium Features',
+                  'All features are free',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ],
             ),
-            
-            const SizedBox(height: AppTheme.md),
-            
+            const SizedBox(height: AppTheme.sm),
             Text(
-              'Current Tier: ${user.premiumTier.displayName}',
+              isBishop
+                  ? 'You are a Bishop: blog posting and Bishop titles are unlocked.'
+                  : 'Bishop (blog posting and Bishop titles) unlocks at 1,000 followers.',
               style: Theme.of(context).textTheme.bodyMedium,
-              textAlign: TextAlign.center,
             ),
-            
             const SizedBox(height: AppTheme.md),
-            
-            // Premium features grid
-            GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 2,
-              childAspectRatio: 2.5,
-              children: [
-                _buildPremiumFeatureItem(context, 'Advanced Search', Icons.search),
-                _buildPremiumFeatureItem(context, 'Offline Mode', Icons.download),
-                _buildPremiumFeatureItem(context, 'Commentaries', Icons.comment),
-                _buildPremiumFeatureItem(context, 'Reading Plans', Icons.calendar_month),
-              ],
-            ),
-            
-            const SizedBox(height: AppTheme.md),
-            
-            ElevatedButton(
+            OutlinedButton(
               onPressed: () => context.go('/premium'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.amber,
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(vertical: AppTheme.md),
-                shape: RoundedRectangleBorder(
-                  borderRadius: AppTheme.mediumBorderRadius,
-                ),
-              ),
-              child: const Text('View Premium Plans'),
+              child: Text(isBishop ? 'What you get' : 'How to become a Bishop'),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildPremiumFeatureItem(BuildContext context, String title, IconData icon) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.amber),
-      title: Text(title),
-      trailing: const Icon(Icons.lock_outline, size: 16),
     );
   }
 }
